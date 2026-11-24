@@ -110,7 +110,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: wikimedia/mediawiki
-          ref: 1.43.11
+          ref: 1.43.12
           path: .mw-lab
       - uses: actions/checkout@v4
         with:
@@ -118,7 +118,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: wikidebates/wikidebates-core
-          ref: 07cc741fd9bbe768ef182a1c123f8c634d4a82f8
+          ref: 21d0c0d27ac72b9392d859d695c56230a868d772
           path: .wd-lab
       - uses: shivammathur/setup-php@v2
         with:
