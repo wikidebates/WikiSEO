@@ -303,6 +303,14 @@ class WikiSEO {
 	 * @return mixed
 	 */
 	private static function decodeOutputProperty( $prop ) {
+		// PHP serialized values have a one-byte type marker followed by
+		// ":" or, for null, "N;". Ordinary text cannot deserialize. Avoid
+		// both the warning-handler round trip and unserialize() in that case.
+		// All possible serialized forms still use the original safe decoder.
+		if ( is_string( $prop ) && ( $prop[1] ?? '' ) !== ':' && !str_starts_with( $prop, 'N;' ) ) {
+			return $prop;
+		}
+
 		AtEase::suppressWarnings();
 		try {
 			$value = unserialize( $prop, [ 'allowed_classes' => false ] );

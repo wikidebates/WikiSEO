@@ -57,20 +57,19 @@ class MetaTag extends AbstractBaseGenerator implements GeneratorInterface {
 	public function addMetadata(): void {
 		$this->addGlobalMetadata();
 
-		// Meta tags already set in the page
-		$outputMeta = [];
-		foreach ( $this->outputPage->getMetaTags() as $metaTag ) {
-			$outputMeta[$metaTag[0]] = $metaTag[1];
-		}
-
+		// Inspect existing tags only when a page-specific tag is requested.
+		$outputMeta = null;
 		foreach ( $this->tags as $tag ) {
-			// Set through addNoIndex
-			if ( $tag === 'robots' ) {
+			if ( $tag === 'robots' || !array_key_exists( $tag, $this->metadata ) ) {
 				continue;
 			}
-
-			// Only add tag if it doesn't already exist in the output page
-			if ( array_key_exists( $tag, $this->metadata ) && !array_key_exists( $tag, $outputMeta ) ) {
+			if ( $outputMeta === null ) {
+				$outputMeta = [];
+				foreach ( $this->outputPage->getMetaTags() as $metaTag ) {
+					$outputMeta[$metaTag[0]] = $metaTag[1];
+				}
+			}
+			if ( !array_key_exists( $tag, $outputMeta ) ) {
 				$this->outputPage->addMeta( $tag, $this->metadata[$tag] );
 			}
 		}
@@ -216,15 +215,16 @@ class MetaTag extends AbstractBaseGenerator implements GeneratorInterface {
 	private function addHrefLangs(): void {
 		$language = $this->getConfigValue( 'WikiSeoDefaultLanguage' );
 
-		$title = $this->outputPage->getTitle();
-		if ( !empty( $language ) && $title !== null && in_array( $language, Validator::$isoLanguageCodes, true ) ) {
-			$subpage = $title->getSubpageText();
-			$languageUtils = MediaWikiServices::getInstance()->getLanguageNameUtils();
-			$languageFactory = MediaWikiServices::getInstance()->getLanguageFactory();
-
-			// Title might be a page containing a translation.
-			// Change the language and add an alternate link To the root page with the defined default language
-			if ( $title->isSubpage() && $languageUtils->isSupportedLanguage( $subpage ) ) {
+		if ( !empty( $language ) && in_array( $language, Validator::$isoLanguageCodes, true ) &&
+			( $title = $this->outputPage->getTitle() ) !== null
+		) {
+			// Only a subpage can be a translated page. Ordinary titles need
+			// neither the subpage text nor the language lookup services.
+			if ( $title->isSubpage() &&
+				MediaWikiServices::getInstance()->getLanguageNameUtils()->isSupportedLanguage(
+					$subpage = $title->getSubpageText()
+				)
+			) {
 				$this->outputPage->addHeadItem(
 					$language, Html::element(
 					'link',
@@ -239,7 +239,8 @@ class MetaTag extends AbstractBaseGenerator implements GeneratorInterface {
 					)
 				);
 
-				$language = $languageFactory->getLanguage( $subpage )->getHtmlCode();
+				$language = MediaWikiServices::getInstance()->getLanguageFactory()
+					->getLanguage( $subpage )->getHtmlCode();
 			}
 
 			$this->outputPage->addHeadItem(
@@ -300,8 +301,9 @@ class MetaTag extends AbstractBaseGenerator implements GeneratorInterface {
 	 */
 	private function shouldAddNoIndex(): bool {
 		$blockedURLParamKeys = [
-			'curid', 'diff', 'from', 'group', 'mobileaction', 'oldid',
-			'printable', 'profile', 'redirect', 'redlink', 'stableid'
+			'curid' => true, 'diff' => true, 'from' => true, 'group' => true,
+			'mobileaction' => true, 'oldid' => true, 'printable' => true,
+			'profile' => true, 'redirect' => true, 'redlink' => true, 'stableid' => true,
 		];
 
 		$blockedURLParamKeyValuePairs = [
@@ -317,17 +319,17 @@ class MetaTag extends AbstractBaseGenerator implements GeneratorInterface {
 			]
 		];
 
-		if ( $this->outputPage->getTitle() === null ) {
-			// Bail out
+		$title = $this->outputPage->getTitle();
+		if ( $title === null ) {
 			return false;
 		}
 
-		if ( in_array( $this->outputPage->getTitle()->getText(), $blockedURLParamKeyValuePairs['title'], true ) ) {
+		if ( in_array( $title->getText(), $blockedURLParamKeyValuePairs['title'], true ) ) {
 			return true;
 		}
 
 		foreach ( $this->outputPage->getRequest()->getValues() as $key => $value ) {
-			if ( in_array( $key, $blockedURLParamKeys, true ) ) {
+			if ( isset( $blockedURLParamKeys[$key] ) ) {
 				return true;
 			}
 
