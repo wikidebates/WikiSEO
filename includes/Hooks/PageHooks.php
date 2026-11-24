@@ -28,6 +28,8 @@ use Html;
 use MediaWiki\Extension\WikiSEO\DeferredDescriptionUpdate;
 use MediaWiki\Extension\WikiSEO\OverwritePageImageProp;
 use MediaWiki\Extension\WikiSEO\MetaValues;
+use MediaWiki\Extension\WikiSEO\Generator\MetaTag;
+use MediaWiki\Extension\WikiSEO\PagePolicy;
 use MediaWiki\Extension\WikiSEO\WikiSEO;
 use MediaWiki\Hook\BeforePageDisplayHook;
 use MediaWiki\Revision\RenderedRevision;
@@ -64,6 +66,17 @@ class PageHooks implements BeforePageDisplayHook, RevisionDataUpdatesHook {
 	 * @param Skin $skin
 	 */
 	public function onBeforePageDisplay( $out, $skin ): void {
+		$mode = PagePolicy::forOutput( $out );
+		if ( $mode === PagePolicy::OFF ) {
+			return;
+		}
+		if ( $mode === PagePolicy::GLOBAL_ONLY ) {
+			$meta = new MetaTag();
+			$meta->init( [], $out );
+			$meta->addGlobalMetadata();
+			return;
+		}
+
 		$seo = new WikiSEO();
 		$seo->setMetadataFromPageProps( $out );
 		$seo->addMetadataToPage( $out );
@@ -82,7 +95,7 @@ class PageHooks implements BeforePageDisplayHook, RevisionDataUpdatesHook {
 	public function onRevisionDataUpdates( $title, $renderedRevision, &$updates ): void {
 		$output = $renderedRevision->getRevisionParserOutput();
 
-		if ( $output === null ) {
+		if ( $output === null || PagePolicy::forRevision( $title, $output ) !== PagePolicy::FULL ) {
 			return;
 		}
 
@@ -133,6 +146,10 @@ class PageHooks implements BeforePageDisplayHook, RevisionDataUpdatesHook {
 	 * @param OutputPage $output
 	 */
 	public function onOutputPageAfterGetHeadLinksArray( &$tags, OutputPage $output ) {
+		if ( PagePolicy::forOutput( $output ) !== PagePolicy::FULL ) {
+			return;
+		}
+
 		$seo = new WikiSEO();
 		$seo->setMetadataFromPageProps( $output );
 		$canonicalTitle = MetaValues::httpUrl( $seo->getMetadataValue( 'canonical' ) );
