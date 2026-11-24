@@ -1,10 +1,6 @@
 name: WikiSEO - PHP 8.4 smoke and compatibility checks
 
 on:
-  push:
-    branches:
-      - 'feature/**'
-      - main
   pull_request:
   workflow_dispatch:
 
