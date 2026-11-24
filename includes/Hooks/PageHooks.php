@@ -27,6 +27,7 @@ use ExtensionRegistry;
 use Html;
 use MediaWiki\Extension\WikiSEO\DeferredDescriptionUpdate;
 use MediaWiki\Extension\WikiSEO\OverwritePageImageProp;
+use MediaWiki\Extension\WikiSEO\MetaValues;
 use MediaWiki\Extension\WikiSEO\WikiSEO;
 use MediaWiki\Hook\BeforePageDisplayHook;
 use MediaWiki\Revision\RenderedRevision;
@@ -134,7 +135,7 @@ class PageHooks implements BeforePageDisplayHook, RevisionDataUpdatesHook {
 	public function onOutputPageAfterGetHeadLinksArray( &$tags, OutputPage $output ) {
 		$seo = new WikiSEO();
 		$seo->setMetadataFromPageProps( $output );
-		$canonicalTitle = $seo->getMetadataValue( 'canonical' );
+		$canonicalTitle = MetaValues::httpUrl( $seo->getMetadataValue( 'canonical' ) );
 		if ( empty( $canonicalTitle ) ) {
 			return;
 		}
