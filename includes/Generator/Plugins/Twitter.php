@@ -24,8 +24,12 @@ class Twitter extends AbstractBaseGenerator implements GeneratorInterface {
 	public function init( array $metadata, OutputPage $out ): void {
 		$this->metadata = $metadata;
 		$this->outputPage = $out;
-		$this->setFallbackImageIfEnabled();
-		$this->preprocessFileMetadata();
+		// A dedicated X image is used instead of the shared image and logo.
+		// Do not resolve a file that this generator will never publish.
+		if ( !isset( $metadata['twitter_image'] ) ) {
+			$this->setFallbackImageIfEnabled();
+			$this->preprocessFileMetadata();
+		}
 	}
 
 	public function addMetadata(): void {
@@ -45,9 +49,8 @@ class Twitter extends AbstractBaseGenerator implements GeneratorInterface {
 			$this->metadata['twitter_description'] ?? $this->metadata['description'] ?? null );
 
 		$image = $this->metadata['twitter_image'] ?? $this->metadata['image'] ?? null;
-		$socialImage = $this->getSocialMediaImageUrl();
-		if ( !isset( $this->metadata['twitter_image'] ) && $socialImage !== null ) {
-			$image = $socialImage;
+		if ( !isset( $this->metadata['twitter_image'] ) ) {
+			$image = $this->getSocialMediaImageUrl() ?? $image;
 		}
 		if ( isset( $this->metadata['twitter_image'] ) && is_string( $image ) ) {
 			try {

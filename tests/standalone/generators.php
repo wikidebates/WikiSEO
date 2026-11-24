@@ -61,6 +61,11 @@ namespace MediaWiki\Extension\WikiSEO\Generator {
 		protected $metadata = [];
 		protected $outputPage;
 		protected $tags = [];
+		public static int $fallbackCalls = 0;
+		public static int $preprocessCalls = 0;
+		public static int $socialCalls = 0;
+		public static int $fileCalls = 0;
+		public static ?string $socialImage = null;
 		protected function getConfigValue( string $name ) {
 			return [
 				'TwitterCardType' => 'summary_large_image',
@@ -72,21 +77,39 @@ namespace MediaWiki\Extension\WikiSEO\Generator {
 			][$name] ?? null;
 		}
 		protected function setFallbackImageIfEnabled(): void {
+			self::$fallbackCalls++;
 			$this->metadata['image'] ??= 'https://fr.wikidebates.org/logo.png';
 		}
-		protected function preprocessFileMetadata(): void {}
-		protected function getSocialMediaImageUrl(): ?string { return null; }
-		protected function getFileObject( string $name ) { throw new \InvalidArgumentException(); }
-		protected function getFileInfo( $file ): array { return []; }
+		protected function preprocessFileMetadata(): void {
+			self::$preprocessCalls++;
+		}
+		protected function getSocialMediaImageUrl(): ?string {
+			self::$socialCalls++;
+			return self::$socialImage;
+		}
+		protected function getFileObject( string $name ) {
+			self::$fileCalls++;
+			if ( $name === 'Share.png' ) {
+				return $name;
+			}
+			throw new \InvalidArgumentException();
+		}
+		protected function getFileInfo( $file ): array {
+			return [ 'url' => 'https://example.test/files/' . $file ];
+		}
 		protected function getWikiLogo(): string { return 'https://fr.wikidebates.org/logo.png'; }
 	}
 }
 
 namespace {
-	require_once __DIR__ . '/../../includes/MetaValues.php';
-	require_once __DIR__ . '/../../includes/Generator/Plugins/Twitter.php';
-	require_once __DIR__ . '/../../includes/Generator/Plugins/SchemaOrg.php';
-	require_once __DIR__ . '/../../includes/Generator/Plugins/OpenGraph.php';
+	$root = $argv[1] ?? dirname( __DIR__, 2 );
+	$baseline = ( $argv[2] ?? '' ) === '--baseline';
+	require_once $root . '/includes/MetaValues.php';
+	require_once $root . '/includes/Generator/Plugins/Twitter.php';
+	require_once $root . '/includes/Generator/Plugins/SchemaOrg.php';
+	require_once $root . '/includes/Generator/Plugins/OpenGraph.php';
+
+	use MediaWiki\Extension\WikiSEO\Generator\AbstractBaseGenerator;
 
 	use MediaWiki\Extension\WikiSEO\Generator\Plugins\OpenGraph;
 	use MediaWiki\Extension\WikiSEO\Generator\Plugins\SchemaOrg;
@@ -132,5 +155,47 @@ namespace {
 	$og->addMetadata();
 	testAssert( isset( $out->head['og:type'] ), 'Generic OG type' );
 	testAssert( !isset( $out->head['article:published_time'] ), 'No inferred article publication' );
+	// A dedicated X image bypasses all general-image preparation without
+	// changing the selected image or the alt-text fallback.
+	AbstractBaseGenerator::$socialImage = 'https://example.test/generated.jpg';
+	$dedicatedCases = [
+		[ 'https://example.test/x.png', 'https://example.test/x.png' ],
+		[ 'Share.png', 'https://example.test/files/Share.png' ],
+		[ 'javascript:alert(1)', null ],
+		[ '', null ],
+	];
+	$work = [ 'fallback' => 0, 'preprocess' => 0, 'social' => 0, 'dedicated_file' => 0 ];
+	foreach ( $dedicatedCases as [ $image, $expected ] ) {
+		AbstractBaseGenerator::$fallbackCalls = 0;
+		AbstractBaseGenerator::$preprocessCalls = 0;
+		AbstractBaseGenerator::$socialCalls = 0;
+		AbstractBaseGenerator::$fileCalls = 0;
+		$out = new OutputPage();
+		$twitter = new Twitter();
+		$twitter->init( [
+			'image' => 'General.png', 'image_alt' => 'General alt',
+			'twitter_image' => $image,
+		], $out );
+		$twitter->addMetadata();
+		testAssert( ( $out->tags['twitter:image'] ?? null ) === $expected, 'Exact dedicated image output' );
+		testAssert( $out->tags['twitter:image:alt'] === 'General alt', 'Alt fallback is unchanged' );
+		testAssert( AbstractBaseGenerator::$fallbackCalls === ( $baseline ? 1 : 0 ), 'Unneeded fallback call' );
+		testAssert( AbstractBaseGenerator::$preprocessCalls === ( $baseline ? 1 : 0 ), 'Unneeded preprocess call' );
+		testAssert( AbstractBaseGenerator::$socialCalls === ( $baseline ? 1 : 0 ), 'Unneeded social image URL call' );
+		testAssert( AbstractBaseGenerator::$fileCalls === 1, 'Dedicated image still resolves and validates' );
+		$work['fallback'] += AbstractBaseGenerator::$fallbackCalls;
+		$work['preprocess'] += AbstractBaseGenerator::$preprocessCalls;
+		$work['social'] += AbstractBaseGenerator::$socialCalls;
+		$work['dedicated_file'] += AbstractBaseGenerator::$fileCalls;
+	}
+
+	$out = new OutputPage();
+	$twitter = new Twitter();
+	$twitter->init( [ 'image' => 'https://example.test/general.png' ], $out );
+	$twitter->addMetadata();
+	testAssert( $out->tags['twitter:image'] === 'https://example.test/generated.jpg', 'Configured social image still wins without explicit X image' );
+	echo 'WD_SEO_TWITTER_WORK ' . json_encode( [
+		'mode' => $baseline ? 'before' : 'after', 'cases' => count( $dedicatedCases ), 'calls' => $work,
+	], JSON_THROW_ON_ERROR ) . PHP_EOL;
 	echo "WikiSEO generator smoke checks passed\n";
 }

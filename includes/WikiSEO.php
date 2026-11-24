@@ -338,9 +338,16 @@ class WikiSEO {
 	 * @return array
 	 */
 	private function loadCurrentRenderProps( ParserOutput $output ): array {
+		// ParserOutput exposes its current properties as a copy-on-write
+		// array. Avoid hundreds of individual getter calls per #seo/<seo>.
+		$properties = $output->getPageProperties();
+		if ( $properties === [] ) {
+			return [];
+		}
+
 		$result = [];
 		foreach ( Validator::getValidParams() as $name ) {
-			$value = $output->getPageProperty( $name );
+			$value = $properties[$name] ?? null;
 			if ( $value !== null && $value !== false ) {
 				$result[$name] = $value;
 			}

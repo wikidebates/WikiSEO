@@ -32,6 +32,7 @@ jobs:
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/page_policy.php
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/image_work.php
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/canonical_work.php
+          php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/parser_work.php
       - name: Compare image lookup counts with the previous implementation
         shell: bash
         run: |
@@ -53,6 +54,18 @@ jobs:
           git worktree add --detach "$worktree" "$baseline"
           trap 'git worktree remove --force "$worktree"' EXIT
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/canonical_work.php "$worktree" --baseline
+
+      - name: Compare parser, validator and X image work with previous implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=22cc1b7f65d1bd058b7178393dbb17d3c015063f
+          git fetch --no-tags --depth=1 origin "$baseline"
+          worktree="$RUNNER_TEMP/wikiseo-parser-before"
+          git worktree add --detach "$worktree" "$baseline"
+          trap 'git worktree remove --force "$worktree"' EXIT
+          php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/parser_work.php "$worktree" --baseline
+          php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/generators.php "$worktree" --baseline
 
   integration:
     runs-on: ubuntu-24.04
@@ -90,5 +103,7 @@ jobs:
           MW_INSTALL_PATH: ${{ github.workspace }}/.mw-lab
           WD_TEST_EXTENSIONS: WikiSEO
           WD_SEO_LAB_BOOTSTRAP: ${{ github.workspace }}/.wd-lab/tests/mediawikiEnvironment.php
-        run: php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/canonical.php
+        run: |
+          php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/canonical.php
+          php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/parser.php
 
