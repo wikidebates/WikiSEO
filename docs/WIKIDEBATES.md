@@ -170,3 +170,15 @@ inattendues des services ne sont pas mises en cache. Chaque generateur
 conserve sa propre selection d'image (y compris X explicite et URL sociale).
 Les tests comparent les appels aux services et le hash du HTML/JSON-LD avec
 le code precedent. Les compteurs ne sont pas des mesures de requetes SQL.
+
+### Metadonnees globales et proprietes textuelles
+
+Les services de langue ne sont sollicites que pour les sous-pages susceptibles
+d'etre des traductions ; la fabrique de langues ne sert que si la traduction
+est reconnue. Les regles robots, les verifications de domaine et les liens
+hreflang sont conserves. Les balises existantes ne sont parcourues que si
+une metadonnee de page doit etre ajoutee. Les valeurs textuelles ordinaires
+ne passent plus par unserialize(); toutes les formes PHP potentiellement
+serialisees conservent le decodeur avec allowed_classes=false.
+Le test global_work.php compare les sorties, les compteurs et les temps
+informatifs avec le commit precedent 0e9d121e6ba25a42e771d818a3a3841fa468a3fd. Aucun cache persistant.
