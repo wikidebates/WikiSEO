@@ -56,7 +56,7 @@ $label = $argv[2] ?? '';
 $round = (int)( $argv[3] ?? 0 );
 $cases = [ 'ordinary-empty', 'ordinary-persisted', 'ordinary-text', 'ordinary-local-file',
 	'ordinary-separate-x', 'native-debate', 'native-argument', 'native-hreflang', 'parser' ];
-check( in_array( $case, $cases, true ) && in_array( $label, [ 'baseline', 'optimized' ], true ),
+check( in_array( $case, $cases, true ) && in_array( $label, [ 'official', 'baseline', 'optimized' ], true ),
 	'Choose a valid benchmark case and version label' );
 
 $services = MediaWikiServices::getInstance();
@@ -192,21 +192,26 @@ function operation(): array {
 }
 
 function verifyAndHash( array $output ): string {
-	global $case;
+	global $case, $label;
 	if ( $case === 'parser' ) {
 		$props = $output['properties'];
-		same( 'Final title', $props['title'] ?? null, 'Current parser title' );
-		same( 'A description', $props['description'] ?? null, 'Previous parser description' );
-		same( 'https://example.test/fresh', $props['canonical'] ?? null, 'Current canonical' );
+		// The official release has different first-write parser semantics.
+		if ( $label !== 'official' ) {
+			same( 'Final title', $props['title'] ?? null, 'Current parser title' );
+			same( 'A description', $props['description'] ?? null, 'Previous parser description' );
+			same( 'https://example.test/fresh', $props['canonical'] ?? null, 'Current canonical' );
+		} else {
+			check( isset( $props['title'], $props['description'] ), 'Official parser produced properties' );
+		}
 		ksort( $props );
 		return hash( 'sha256', serialize( $props ) );
 	}
 	$head = $output['head'];
-	if ( str_starts_with( $case, 'native-' ) ) {
+	if ( str_starts_with( $case, 'native-' ) && $label !== 'official' ) {
 		check( !str_contains( $head, 'Stale WikiSEO description' ), 'Native mode ignores stale SEO' );
 		check( !str_contains( $head, 'application/ld+json' ), 'No competing native head JSON-LD' );
 		check( str_contains( $head, 'Native SEO title' ), 'Native title is present' );
-	} else {
+	} elseif ( !str_starts_with( $case, 'native-' ) ) {
 		check( str_contains( $head, 'application/ld+json' ), 'Ordinary page has WikiSEO JSON-LD' );
 	}
 	if ( $case === 'ordinary-persisted' ) {
@@ -217,7 +222,7 @@ function verifyAndHash( array $output ): string {
 		check( str_contains( $head, 'property="og:image:width" content="640"' ),
 			'Actual local file dimensions loaded from image catalogue' );
 		check( str_contains( $head, 'SEO-Bench.png?version=' ), 'Versioned local image URL' );
-		if ( $case === 'ordinary-separate-x' ) {
+		if ( $case === 'ordinary-separate-x' && $label !== 'official' ) {
 			check( str_contains( $head, 'SEO-Bench-X.png?version=' ), 'Separate local X image' );
 		}
 	}

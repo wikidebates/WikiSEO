@@ -139,8 +139,12 @@ Si `titre` est absent, le titre HTML MediaWiki n'est pas remplace. Si
 
 Le depot conserve l'historique original Wikimedia depuis la branche
 `REL1_43`, commit `0496485749063be68fbe3a3aa1bd444979ec262a`.
-Les modifications de ce chantier se trouvent dans une branche
-`feature/seo-modernization-mw143-20261124`, sans modification du serveur.
+Les modifications de modernisation et d'optimisation sont integrees dans
+`main`. La ferme MediaWiki (revision
+`f0e2bf8a7fd3d903c7ac237fe76aa455de74e6bd`) reference le code de production
+WikiSEO `ca976844f6a8c038080684cf566aaaa4093cef9c`, sur MediaWiki 1.43.12.
+Les changements limites aux tests et a la documentation ne necessitent pas
+de mise a jour du gitlink de production.
 
 ## Optimisations sans modification du rendu
 
@@ -185,16 +189,36 @@ informatifs avec le commit precedent 0e9d121e6ba25a42e771d818a3a3841fa468a3fd. A
 
 ## Benchmark cumule de WikiSEO
 
-Le workflow `seo-combined-benchmark.yml` compare le sous-module de la ferme
-`3f52f9d7d196bcaed541201f4412f4bf1e6b71e1` avec le candidat, sur la meme machine CI, MediaWiki 1.43.11,
-PHP 8.4 et Wikidebates `21d0c0d27ac72b9392d859d695c56230a868d772`. La base SQLite jetable est reconstruite
-pour chaque processus ; les pages et fichiers du catalogue sont synthetiques.
+Le workflow `seo-combined-benchmark.yml` compare trois versions sur la meme
+machine CI, avec MediaWiki 1.43.12, PHP 8.4 et Wikidebates
+`21d0c0d27ac72b9392d859d695c56230a868d772` :
+
+- `official` : revision Wikimedia REL1_43
+  `0496485749063be68fbe3a3aa1bd444979ec262a` ; le dernier gitlink officiel de
+  la ferme, `3b135415f9fe0eff4d23659b4143bd50009238ab`, a le meme code PHP.
+- `baseline` : premiere modernisation
+  `3f52f9d7d196bcaed541201f4412f4bf1e6b71e1`.
+- `optimized` : code du candidat (revision finale de production
+  `ca976844f6a8c038080684cf566aaaa4093cef9c` lors de l'introduction du test).
+
+La base SQLite jetable est reconstruite pour chaque processus ; les pages
+et fichiers du catalogue sont synthetiques.
 Deux passages d'ordre inverse reduisent les biais d'ordre. Les mesures
 separent le rendu SEO et la construction du head de l'analyse du wikitexte.
 Les compteurs SQL sont issus des traces Database::executeQuery, dans des
 passages distincts des chronometrages. La memoire est le pic incremental
 PHP sur un lot identique, non la RAM du serveur. Les empreintes des metadonnees
-(et des proprietes parser) doivent correspondre exactement. Ce test ne mesure
+(et des proprietes parser) doivent correspondre exactement entre `baseline`
+et `optimized`, et rester stables dans chaque version. La sortie officielle
+peut differer en raison des corrections et fonctionnalites de modernisation.
+Ce test ne mesure
 ni les caches HTML ni la latence HTTP ou MariaDB de production. Pas de seuil
 chronometrique bloquant : les temps sont informatifs. Le workflow est lance
 sur les PR modifiant son banc d'essai, ou manuellement.
+
+Le [benchmark historique sur MediaWiki 1.43.11](https://github.com/wikidebates/WikiSEO/actions/runs/45388300714)
+a mesure une reduction du CPU de 36,5 a 36,8 % pour les cas natifs, de
+20,2 a 28,4 % pour les pages ordinaires et de 5,9 % pour le cas parser
+(de la version officielle au candidat). Les trois cas natifs ont conserve
+leur empreinte SEO finale. Ces chiffres concernent les operations mesurees,
+non le rendu HTML complet ou les pages servies depuis un cache fichier.
