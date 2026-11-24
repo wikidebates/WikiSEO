@@ -45,6 +45,10 @@ class Twitter extends AbstractBaseGenerator implements GeneratorInterface {
 			$this->metadata['twitter_description'] ?? $this->metadata['description'] ?? null );
 
 		$image = $this->metadata['twitter_image'] ?? $this->metadata['image'] ?? null;
+		$socialImage = $this->getSocialMediaImageUrl();
+		if ( !isset( $this->metadata['twitter_image'] ) && $socialImage !== null ) {
+			$image = $socialImage;
+		}
 		if ( isset( $this->metadata['twitter_image'] ) && is_string( $image ) ) {
 			try {
 				$image = $this->getFileInfo( $this->getFileObject( $image ) )['url'];
