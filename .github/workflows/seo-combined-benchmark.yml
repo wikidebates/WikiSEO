@@ -1,4 +1,4 @@
-name: WikiSEO - combined deployed vs optimized benchmark
+name: WikiSEO - official vs modernized vs optimized benchmark
 
 on:
   pull_request:
@@ -48,25 +48,30 @@ jobs:
         run: |
           set -euo pipefail
           baseline=3f52f9d7d196bcaed541201f4412f4bf1e6b71e1
+          official=0496485749063be68fbe3a3aa1bd444979ec262a
+          original="$RUNNER_TEMP/wikiseo-official"
           before="$RUNNER_TEMP/wikiseo-deployed"
           candidate="$GITHUB_WORKSPACE/.candidate"
           git -C "$candidate" fetch --no-tags --depth=1 origin "$baseline"
           git -C "$candidate" worktree add --detach "$before" "$baseline"
+          git -C "$candidate" fetch --no-tags --depth=1 origin "$official"
+          git -C "$candidate" worktree add --detach "$original" "$official"
           ext="$MW_INSTALL_PATH/extensions/WikiSEO"
           test ! -e "$ext"
-          trap 'rm -f "$ext"; git -C "$candidate" worktree remove --force "$before"' EXIT
+          trap 'rm -f "$ext"; git -C "$candidate" worktree remove --force "$before"; git -C "$candidate" worktree remove --force "$original"' EXIT
           results="$RUNNER_TEMP/wikiseo-combined.jsonl"
           : > "$results"
           for round in 1 2; do
             if [ "$round" = 1 ]; then
-              versions="baseline optimized"
+              versions="official baseline optimized"
             else
-              versions="optimized baseline"
+              versions="optimized baseline official"
             fi
             for case in ordinary-empty ordinary-persisted ordinary-text ordinary-local-file ordinary-separate-x native-debate native-argument native-hreflang parser; do
               for version in $versions; do
                 target="$candidate"
                 if [ "$version" = baseline ]; then target="$before"; fi
+                if [ "$version" = official ]; then target="$original"; fi
                 if [ -L "$ext" ]; then rm "$ext"; fi
                 ln -s "$target" "$ext"
                 php -d opcache.enable_cli=0 -d display_errors=1 -d error_reporting=E_ALL \
