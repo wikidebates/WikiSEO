@@ -11,6 +11,9 @@ namespace {
 	class Config {
 		public array $generators = [ 'OpenGraph', 'Twitter', 'SchemaOrg' ];
 		public function get( string $key ) {
+			if ( $key === 'WikiSeoInterlanguageArticleUrls' ) {
+				return [];
+			}
 			if ( $key === 'WikiSeoLargeImagePreview' ) {
 				return false;
 			}

@@ -29,6 +29,7 @@ use MediaWiki\Extension\WikiSEO\DeferredDescriptionUpdate;
 use MediaWiki\Extension\WikiSEO\OverwritePageImageProp;
 use MediaWiki\Extension\WikiSEO\Generator\MetaTag;
 use MediaWiki\Extension\WikiSEO\PagePolicy;
+use MediaWiki\Extension\WikiSEO\InterlanguageHreflang;
 use MediaWiki\Extension\WikiSEO\WikiSEO;
 use MediaWiki\Hook\BeforePageDisplayHook;
 use MediaWiki\Revision\RenderedRevision;
@@ -145,9 +146,23 @@ class PageHooks implements BeforePageDisplayHook, RevisionDataUpdatesHook {
 	 * @param OutputPage $output
 	 */
 	public function onOutputPageAfterGetHeadLinksArray( &$tags, OutputPage $output ) {
-		if ( PagePolicy::forOutput( $output ) !== PagePolicy::FULL ) {
-			return;
+		$mode = PagePolicy::forOutput( $output );
+		if ( $mode === PagePolicy::FULL ) {
+			$this->updateCanonicalAndRobots( $tags, $output );
 		}
+
+		// Native debate/argument pages use GLOBAL_ONLY but retain hreflang.
+		// Use the final canonical tag, not a new page property lookup.
+		$routes = $this->mainConfig->get( 'WikiSeoInterlanguageArticleUrls' );
+		if ( is_array( $routes ) && $routes !== [] ) {
+			InterlanguageHreflang::apply(
+				$tags, $output, $routes, $this->mainConfig->get( 'LanguageCode' ),
+				$mode !== PagePolicy::OFF
+			);
+		}
+	}
+
+	private function updateCanonicalAndRobots( array &$tags, OutputPage $output ): void {
 
 		// MediaWiki 1.43 has no getter for its robots options. Only replace
 		// the exact default tag after all BeforePageDisplay handlers. Never
