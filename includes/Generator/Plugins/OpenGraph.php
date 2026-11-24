@@ -125,15 +125,7 @@ class OpenGraph extends AbstractBaseGenerator implements GeneratorInterface {
 		}
 
 		$this->setFallbackImageIfEnabled();
-		$originalImage = $this->metadata['image'] ?? null;
 		$this->preprocessFileMetadata();
-		if ( is_string( $originalImage ) && !isset( $this->metadata['image_type'] ) ) {
-			try {
-				$this->metadata['image_type'] = $this->getFileObject( $originalImage )->getMimeType();
-			} catch ( \InvalidArgumentException $e ) {
-				// An external image URL has no local file metadata.
-			}
-		}
 		$secure = MetaValues::secureUrl(
 			$this->metadata['image_secure_url'] ?? $this->metadata['image'] ?? null
 		);

@@ -149,12 +149,14 @@ class SchemaOrg extends AbstractBaseGenerator implements GeneratorInterface {
 
 	private function getImageMetadata(): ?array {
 		$this->setFallbackImageIfEnabled();
-		if ( !empty( $this->metadata['image'] ) ) {
-			$image = (string)$this->metadata['image'];
+		if ( is_string( $this->metadata['image'] ?? null ) && $this->metadata['image'] !== '' ) {
+			$image = $this->metadata['image'];
 			try {
 				return [ '@type' => 'ImageObject' ] + $this->getFileInfo( $this->getFileObject( $image ) );
 			} catch ( InvalidArgumentException $e ) {
-				$url = MetaValues::httpUrl( $image );
+				$url = MetaValues::httpUrl( str_starts_with( $image, '//' )
+					? WikiSEO::protocolizeUrl( $image, $this->outputPage->getRequest() )
+					: $image );
 				if ( $url !== null ) {
 					return [ '@type' => 'ImageObject', 'url' => $url ];
 				}
