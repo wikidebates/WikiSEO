@@ -161,7 +161,7 @@ same( [], InterlanguageHreflang::alternates( [ 'zz:Page', 'ja:Page', 'nl:Page', 
 // resolver should be needed by the new final-head operation.
 $logger = new class extends AbstractLogger {
 	public int $queries = 0;
-	public function log( $level, string|\Stringable $message, array $context = [] ): void {
+	public function log( $level, $message, array $context = [] ): void {
 		if ( isset( $context['sql'] ) ) {
 			$this->queries++;
 		}
