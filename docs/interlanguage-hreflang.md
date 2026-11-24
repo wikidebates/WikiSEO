@@ -35,12 +35,31 @@ $wgWikiSeoInterlanguageArticleUrls['fr'] = [
 ];
 ```
 
-Do this only if the root is actually the canonical URL. Use localized
-canonical page titles (including namespace prefixes) in the existing
-interlanguage mapping. The automatic mode does not resolve remote redirects
-or namespace aliases, or assert that a target is indexable. Verify these and
-the reciprocal links in a separate deployment check; checking them on every
-page view would require remote network or database reads.
+Do this only if the root is actually the canonical URL. Central mappings can
+use canonical MediaWiki namespace names (such as Project) even when the
+target wiki has a localized namespace URL. Supply explicitly verified
+namespace aliases on each route; the map translates a namespace prefix,
+never a page title or a translation relationship. For example:
+
+```php
+$wgWikiSeoInterlanguageArticleUrls['fr'] = [
+	'article' => 'https://fr.wikidebates.org/wiki/$1',
+	'namespaceAliases' => [
+		'Project' => 'Wikidébats',
+		'Wikidébats' => 'Wikidébats',
+		'Help' => 'Aide',
+		'Aide' => 'Aide',
+	],
+];
+```
+
+Aliases are matched case-insensitively, with spaces and underscores treated
+equivalently. Unconfigured prefixes and colons within the remaining title
+are preserved. Verify the map against the target site's namespace settings,
+not the source language's settings. The automatic mode still does not
+resolve remote redirects, unknown aliases, or assert that a target is
+indexable. Verify these and reciprocal links separately; checking them on
+every page view would require remote network or database reads.
 
 The effective OutputPage language links already include contributions from
 Interlanguage. The feature does not run the LanguageLinks hook again, call
