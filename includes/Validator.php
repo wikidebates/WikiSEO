@@ -57,8 +57,20 @@ class Validator {
 		'author',
 
 		'published_time',
-
+		'modified_time',
+		'image_type',
+		'image_secure_url',
+		'locale_alternate',
+		'og_type',
+		'schema_type',
+		'schema_author',
 		'twitter_site',
+		'twitter_creator',
+		'twitter_title',
+		'twitter_description',
+		'twitter_image',
+		'twitter_image_alt',
+		'twitter_card',
 	];
 
 	/**
@@ -304,13 +316,17 @@ class Validator {
 	 * @return string[]
 	 */
 	public static function getValidParams(): array {
-		$params = self::$validParameterNames;
+		$params = array_values( array_filter(
+			self::$validParameterNames,
+			static function ( string $name ): bool {
+				return $name !== 'hreflang_%';
+			}
+		) );
 
-		$hreflang = array_shift( $params );
-		$params += array_map( static function ( $langCode ) use ( $hreflang ) {
-			return sprintf( $hreflang . 's', $langCode );
-		}, self::$isoLanguageCodes );
+		foreach ( self::$isoLanguageCodes as $langCode ) {
+			$params[] = 'hreflang_' . $langCode;
+		}
 
-		return $params;
+		return array_values( array_unique( $params ) );
 	}
 }
