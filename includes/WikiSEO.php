@@ -266,20 +266,68 @@ class WikiSEO {
 			$prop = $page->getProperty( $param );
 
 			if ( $prop !== null ) {
-				AtEase::suppressWarnings();
-				$value = unserialize( $prop, [ 'allowed_classes' => false ] );
-				AtEase::restoreWarnings();
-
-				// Value was serialized
-				if ( $value !== false ) {
-					$prop = $value;
-				}
-
-				$result[$param] = $prop;
+				$result[$param] = self::decodeOutputProperty( $prop );
 			}
 		}
 
 		return empty( $result ) ? null : $result;
+	}
+
+	/**
+	 * Decode an OutputPage property using the same rules for both the full
+	 * metadata load and the canonical-only read.
+	 *
+	 * @param mixed $prop
+	 * @return mixed
+	 */
+	private static function decodeOutputProperty( $prop ) {
+		AtEase::suppressWarnings();
+		try {
+			$value = unserialize( $prop, [ 'allowed_classes' => false ] );
+		} finally {
+			AtEase::restoreWarnings();
+		}
+		return $value !== false ? $value : $prop;
+	}
+
+	/**
+	 * Resolve just the canonical URL after generator parameter registration.
+	 *
+	 * Preserve the full loader's all-or-nothing source precedence: ANY
+	 * recognized non-null OutputPage property means the current render wins,
+	 * even if its canonical is missing or empty. Only if no recognized
+	 * property exists may we use the database. Do not deserialize or
+	 * validate unrelated properties, or fetch their persisted values.
+	 */
+	public function getCanonicalFromPageProps( OutputPage $outputPage ): ?string {
+		$title = $outputPage->getTitle();
+		if ( $title === null ) {
+			return null;
+		}
+
+		$validParams = Validator::getValidParams();
+		if ( !in_array( 'canonical', $validParams, true ) ) {
+			return null;
+		}
+
+		$canonical = $outputPage->getProperty( 'canonical' );
+		if ( $canonical !== null ) {
+			return MetaValues::httpUrl( self::decodeOutputProperty( $canonical ) );
+		}
+
+		foreach ( $validParams as $param ) {
+			if ( $param !== 'canonical' && $outputPage->getProperty( $param ) !== null ) {
+				return null;
+			}
+		}
+
+		$properties = MediaWikiServices::getInstance()->getPageProps()->getProperties(
+			$title,
+			[ 'canonical' ]
+		);
+		$properties = array_shift( $properties );
+		// Persisted values were never deserialized by the full loader.
+		return MetaValues::httpUrl( $properties['canonical'] ?? null );
 	}
 
 	/**

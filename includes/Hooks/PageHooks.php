@@ -27,7 +27,6 @@ use ExtensionRegistry;
 use Html;
 use MediaWiki\Extension\WikiSEO\DeferredDescriptionUpdate;
 use MediaWiki\Extension\WikiSEO\OverwritePageImageProp;
-use MediaWiki\Extension\WikiSEO\MetaValues;
 use MediaWiki\Extension\WikiSEO\Generator\MetaTag;
 use MediaWiki\Extension\WikiSEO\PagePolicy;
 use MediaWiki\Extension\WikiSEO\WikiSEO;
@@ -150,9 +149,10 @@ class PageHooks implements BeforePageDisplayHook, RevisionDataUpdatesHook {
 			return;
 		}
 
+		// Construction still registers configured generator-specific parameters
+		// (e.g. Citation). The canonical read itself needs no other metadata.
 		$seo = new WikiSEO();
-		$seo->setMetadataFromPageProps( $output );
-		$canonicalTitle = MetaValues::httpUrl( $seo->getMetadataValue( 'canonical' ) );
+		$canonicalTitle = $seo->getCanonicalFromPageProps( $output );
 		if ( empty( $canonicalTitle ) ) {
 			return;
 		}

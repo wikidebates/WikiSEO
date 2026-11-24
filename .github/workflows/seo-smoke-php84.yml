@@ -31,6 +31,7 @@ jobs:
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/generators.php
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/page_policy.php
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/image_work.php
+          php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/canonical_work.php
       - name: Compare image lookup counts with the previous implementation
         shell: bash
         run: |
@@ -41,6 +42,17 @@ jobs:
           trap 'rm -f "$previous"' EXIT
           git show "$baseline:includes/Generator/AbstractBaseGenerator.php" > "$previous"
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/image_work.php "$previous" --baseline
+
+      - name: Compare canonical lookup counts with previous implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=4927c1efd4493697133af80a48b73feb7afd0958
+          git fetch --no-tags --depth=1 origin "$baseline"
+          worktree="$RUNNER_TEMP/wikiseo-canonical-before"
+          git worktree add --detach "$worktree" "$baseline"
+          trap 'git worktree remove --force "$worktree"' EXIT
+          php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/canonical_work.php "$worktree" --baseline
 
   integration:
     runs-on: ubuntu-24.04
@@ -73,4 +85,10 @@ jobs:
           MW_INSTALL_PATH: ${{ github.workspace }}/.mw-lab
           WD_TEST_EXTENSIONS: WikiSEO
         run: php -d display_errors=1 -d error_reporting=E_ALL .wd-lab/tests/seoCoexistence.php
+      - name: Canonical precedence with a real MediaWiki page
+        env:
+          MW_INSTALL_PATH: ${{ github.workspace }}/.mw-lab
+          WD_TEST_EXTENSIONS: WikiSEO
+          WD_SEO_LAB_BOOTSTRAP: ${{ github.workspace }}/.wd-lab/tests/mediawikiEnvironment.php
+        run: php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/canonical.php
 
