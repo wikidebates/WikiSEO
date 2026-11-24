@@ -55,16 +55,7 @@ class MetaTag extends AbstractBaseGenerator implements GeneratorInterface {
 	 * @return void
 	 */
 	public function addMetadata(): void {
-		$this->addGoogleSiteVerification();
-		$this->addBingSiteVerification();
-		$this->addYandexSiteVerification();
-		$this->addPinterestSiteVerification();
-		$this->addNortonSiteVerification();
-		$this->addNaverSiteVerification();
-		$this->addFacebookAppId();
-		$this->addFacebookAdmins();
-		$this->addHrefLangs();
-		$this->addNoIndex();
+		$this->addGlobalMetadata();
 
 		// Meta tags already set in the page
 		$outputMeta = [];
@@ -83,6 +74,24 @@ class MetaTag extends AbstractBaseGenerator implements GeneratorInterface {
 				$this->outputPage->addMeta( $tag, $this->metadata[$tag] );
 			}
 		}
+	}
+
+	/**
+	 * Site-wide, non-page-specific output for an opt-out page. Keeps domain
+	 * verification, configured alternate languages and the robots safety rules,
+	 * but never emits cached page title, description, image or other SEO data.
+	 */
+	public function addGlobalMetadata(): void {
+		$this->addGoogleSiteVerification();
+		$this->addBingSiteVerification();
+		$this->addYandexSiteVerification();
+		$this->addPinterestSiteVerification();
+		$this->addNortonSiteVerification();
+		$this->addNaverSiteVerification();
+		$this->addFacebookAppId();
+		$this->addFacebookAdmins();
+		$this->addHrefLangs();
+		$this->addNoIndex();
 	}
 
 	/**
