@@ -153,6 +153,37 @@ if ( $language !== 'fr' ) {
 	$result = InterlanguageHreflang::alternates( [ 'fr:Wikidébats:Accueil' ], $homeRoutes, $language, $canonical );
 	same( 'https://fr.example.test/', $result['fr'], 'Configured canonical main page route' );
 }
+// Production stores Project: titles, but each edition publishes a localized
+// project namespace. Do not treat an arbitrary colon as a namespace.
+$projectPrefixes = [
+	'fr' => 'Wikidébats', 'en' => 'Wikidebates', 'de' => 'Wikidebatten',
+	'es' => 'Wikidebates', 'it' => 'Wikidibattiti', 'pt' => 'Wikidebates',
+];
+$aliasRoutes = $routes;
+$aliasLinks = [];
+$aliasExpected = [ $language => $canonical ];
+foreach ( $projectPrefixes as $code => $prefix ) {
+	if ( $code === $language ) {
+		continue;
+	}
+	$aliasRoutes[$code] = [
+		'article' => $routes[$code],
+		'namespaceAliases' => [ 'Project' => $prefix, $prefix => $prefix ],
+	];
+	$aliasLinks[] = $code . ':Project: École: débat';
+	$aliasLinks[] = $code . ':' . $prefix . ':École: débat';
+	$aliasExpected[$code] = str_replace( '$1', wfUrlencode( $prefix . ':École:_débat' ), $routes[$code] );
+}
+ksort( $aliasExpected );
+same( $aliasExpected, InterlanguageHreflang::alternates( $aliasLinks, $aliasRoutes, $language, $canonical ), 'Canonical remote namespace aliases and duplicate equivalence' );
+$out = fixture( $titles[$language], $aliasLinks );
+$tags = initialTags( $canonical );
+InterlanguageHreflang::apply( $tags, $out, $aliasRoutes, $language, true );
+same( $aliasExpected, cluster( $tags ), 'Localized canonical aliases in the actual head' );
+$other = $language === 'en' ? 'fr' : 'en';
+$result = InterlanguageHreflang::alternates( [ $other . ':Topic: A colon' ], $aliasRoutes, $language, $canonical );
+same( str_replace( '$1', wfUrlencode( 'Topic:_A_colon' ), $routes[$other] ), $result[$other], 'Unknown prefix remains part of an ordinary title' );
+
 $bad = [ 'zz' => 'javascript:$1', 'ja' => 'https://user@other.example.test/$1', 'nl' => 'https://$1.example.test/wiki/' ];
 same( [], InterlanguageHreflang::alternates( [ 'zz:Page', 'ja:Page', 'nl:Page', 'de:Page#section', 'es:../Page' ], $routes + $bad, $language, $canonical ), 'Reject invalid routes and partial page links' );
 
