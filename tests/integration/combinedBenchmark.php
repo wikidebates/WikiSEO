@@ -34,10 +34,10 @@ final class BenchmarkSqlCounter extends AbstractLogger {
 		}
 		$this->total++;
 		$sql = $context['sql'];
-		if ( preg_match( '/\bpage_props\b/i', $sql ) ) {
+		if ( preg_match( '/\b(?:FROM|JOIN|UPDATE|INTO)\s+[\x60"]?page_props\b/i', $sql ) ) {
 			$this->pageProps++;
 		}
-		if ( preg_match( '/\b(?:image|oldimage)\b/i', $sql ) ) {
+		if ( preg_match( '/\b(?:FROM|JOIN|UPDATE|INTO)\s+[\x60"]?(?:image|oldimage)\b/i', $sql ) ) {
 			$this->files++;
 		}
 	}
@@ -69,11 +69,14 @@ same( 'sqlite', $db->getType(), 'Only disposable SQLite is allowed' );
 // in each new database. File metadata is real MediaWiki LocalFile data,
 // not a simulated repository; no binary image is read or transformed.
 $pageName = 'SEO_Benchmark_Page';
-$db->newInsertQueryBuilder()->insertInto( 'page' )->row( [
-	'page_id' => 41, 'page_namespace' => 0, 'page_title' => $pageName,
-	'page_random' => 0.5, 'page_touched' => '20261124100000',
-	'page_latest' => 1, 'page_len' => 100, 'page_content_model' => 'wikitext',
-] )->caller( __METHOD__ )->execute();
+$emptyPageName = 'SEO_Benchmark_Without_Props';
+foreach ( [ 41 => $pageName, 42 => $emptyPageName ] as $id => $name ) {
+	$db->newInsertQueryBuilder()->insertInto( 'page' )->row( [
+		'page_id' => $id, 'page_namespace' => 0, 'page_title' => $name,
+		'page_random' => 0.5, 'page_touched' => '20261124100000',
+		'page_latest' => 1, 'page_len' => 100, 'page_content_model' => 'wikitext',
+	] )->caller( __METHOD__ )->execute();
+}
 $db->newInsertQueryBuilder()->insertInto( 'page_props' )->rows( [
 	[ 'pp_page' => 41, 'pp_propname' => 'title', 'pp_value' => 'Stored SEO title' ],
 	[ 'pp_page' => 41, 'pp_propname' => 'description', 'pp_value' => 'Stored SEO description' ],
@@ -126,7 +129,7 @@ $ordinary = [
 ];
 
 function operation(): array {
-	global $case, $services, $hooks, $skin, $ordinary, $pageName;
+	global $case, $services, $hooks, $skin, $ordinary, $pageName, $emptyPageName;
 	if ( $case === 'parser' ) {
 		$title = Title::newFromText( 'SEO repeated parser benchmark' );
 		$output = $services->getParserFactory()->create()->parse(
@@ -139,9 +142,11 @@ function operation(): array {
 	}
 
 	$context = new RequestContext();
-	$context->setTitle( Title::newFromText(
-		$case === 'ordinary-persisted' ? $pageName : 'SEO benchmark ' . $case
-	) );
+	$context->setTitle( Title::newFromText( match ( $case ) {
+		'ordinary-persisted' => $pageName,
+		'ordinary-empty' => $emptyPageName,
+		default => 'SEO benchmark ' . $case,
+	} ) );
 	$out = $context->getOutput();
 	$out->setArticleFlag( true );
 	$out->setRevisionTimestamp( '20261124100000' );
@@ -242,6 +247,15 @@ function median( array $values ): float {
 // Actual Database::executeQuery debug records, not counts of PageProps
 // service calls. Count in a separate pass to exclude logging from timings.
 $counter = new BenchmarkSqlCounter();
+// Classification is by table reference, not string literals in IN lists.
+$counter->log( 'debug', '', [
+	'db_log_category' => 'query', 'sql' => "SELECT pp_value FROM page_props WHERE pp_propname IN ('image','title')",
+] );
+same( [ 'total' => 1, 'page_props' => 1, 'file_catalog' => 0 ], $counter->counts(), 'Page props containing image name are not file queries' );
+$counter->log( 'debug', '', [
+	'db_log_category' => 'query', 'sql' => 'SELECT img_width FROM "image" WHERE img_name = ?',
+] );
+same( [ 'total' => 2, 'page_props' => 1, 'file_catalog' => 1 ], $counter->counts(), 'Quoted image table is recognized' );
 foreach ( [ $db, $dbr ] as $connection ) {
 	$connection->setLogger( $counter );
 	$connection->setFlag( IDatabase::DBO_DEBUG );
