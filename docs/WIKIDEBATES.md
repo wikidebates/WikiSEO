@@ -182,3 +182,19 @@ ne passent plus par unserialize(); toutes les formes PHP potentiellement
 serialisees conservent le decodeur avec allowed_classes=false.
 Le test global_work.php compare les sorties, les compteurs et les temps
 informatifs avec le commit precedent 0e9d121e6ba25a42e771d818a3a3841fa468a3fd. Aucun cache persistant.
+
+## Benchmark cumule de WikiSEO
+
+Le workflow `seo-combined-benchmark.yml` compare le sous-module de la ferme
+`3f52f9d7d196bcaed541201f4412f4bf1e6b71e1` avec le candidat, sur la meme machine CI, MediaWiki 1.43.11,
+PHP 8.4 et Wikidebates `21d0c0d27ac72b9392d859d695c56230a868d772`. La base SQLite jetable est reconstruite
+pour chaque processus ; les pages et fichiers du catalogue sont synthetiques.
+Deux passages d'ordre inverse reduisent les biais d'ordre. Les mesures
+separent le rendu SEO et la construction du head de l'analyse du wikitexte.
+Les compteurs SQL sont issus des traces Database::executeQuery, dans des
+passages distincts des chronometrages. La memoire est le pic incremental
+PHP sur un lot identique, non la RAM du serveur. Les empreintes des metadonnees
+(et des proprietes parser) doivent correspondre exactement. Ce test ne mesure
+ni les caches HTML ni la latence HTTP ou MariaDB de production. Pas de seuil
+chronometrique bloquant : les temps sont informatifs. Le workflow est lance
+sur les PR modifiant son banc d'essai, ou manuellement.
