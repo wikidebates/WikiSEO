@@ -23,12 +23,16 @@ specialisee des pages de debat/argument releve de l'extension **Wikidebates**.
 | Type de metadonnee | Defaut | Adaptation possible |
 | --- | --- | --- |
 | Open Graph | `og:type=website` | `og_type=article` pour les vrais articles |
-| Schema.org | `@type=WebPage` | `schema_type=AboutPage`, `ContactPage`, `Article`, `QAPage`, etc. |
+| Schema.org | `@type=WebPage` | `schema_type=AboutPage`, `ContactPage`, `Article`, etc. |
 | Twitter / X | `summary_large_image` | `twitter_card=summary` |
 | Date de publication | Absente | `published_time=` si la date est connue |
 | Date de modification | Absente | `modified_time=` si la date est connue |
 | Auteur | Absent | `schema_author=` pour les articles |
 | Organisation editrice | Nom du wiki, si configure | `publisher` sous forme `Organization` |
+
+Les types complexes comme `QAPage`, `FAQPage` ou `Question` ne sont pas proposes
+par ce generateur minimal : ils exigent des donnees structurees completes,
+produites par l'extension Wikidebates pour ses debats et arguments.
 
 Les anciens parametres `type=article` et `type=website` restent acceptes.
 Il est preferable de specifier separement `og_type` et `schema_type` dans
