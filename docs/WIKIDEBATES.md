@@ -6,9 +6,9 @@ specialisee des pages de debat/argument releve de l'extension **Wikidebates**.
 
 ## Principes
 
-- **Aucune desactivation** de WikiSEO sur les pages generees par l'extension
-  Wikidebates. Les interactions HTML des deux systemes doivent etre testees
-  avant la mise en production.
+- Les pages de debat et d'argument avec marqueur natif utilisent le mode
+  `global-only` de WikiSEO ; les pages ordinaires gardent le mode `full`.
+  Les interactions HTML des deux systemes doivent etre testees avant deploiement.
 - Le hook MediaWiki `BeforePageDisplay` de WikiSEO est toujours actif :
   **meme sans `#seo` ou `<seo>`**, un socle de metadonnees est produit.
 - On ne doit jamais annoncer automatiquement que toutes les pages sont des
@@ -141,3 +141,19 @@ Le depot conserve l'historique original Wikimedia depuis la branche
 `REL1_43`, commit `0496485749063be68fbe3a3aa1bd444979ec262a`.
 Les modifications de ce chantier se trouvent dans une branche
 `feature/seo-modernization-mw143-20261124`, sans modification du serveur.
+
+## Optimisations sans modification du rendu
+
+- Lecture groupee des proprietes du ParserOutput pour les appels `#seo` et
+  `<seo>` successifs (ordre de la liste autorisee et valeurs conserves).
+- Validation des noms par une table de correspondance en memoire du processus,
+  derivee de la liste autorisee existante. Les ajouts/retraits des noms de
+  generateurs et des codes de langues invalident les listes calculees.
+- En presence d'une image X explicite, ne pas preparer l'image generale,
+  l'image de secours ni l'URL sociale qui ne seront pas utilisees par X.
+  Les generateurs Open Graph et Schema.org ne changent pas.
+
+Les tests `tests/standalone/parser_work.php` et `generators.php` comparent
+le comportement au commit precedent `22cc1b7f65d1bd058b7178393dbb17d3c015063f`.
+Les temps de microbenchmark PHP sont informatifs, sans seuil de CI. Aucun
+nouveau cache disque ou partage entre requetes n'est introduit.

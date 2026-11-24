@@ -27,11 +27,15 @@ namespace MediaWiki\Extension\WikiSEO;
  * @package MediaWiki\Extension\WikiSEO
  */
 class Validator {
-	/** @var string|null Cache fingerprint; generator hooks may add valid names. */
-	private static ?string $cachedParamsFingerprint = null;
+	/** Snapshots of the public, extensible parameter and language lists. */
+	private static ?array $cachedParameterNames = null;
+	private static ?array $cachedLanguageCodes = null;
 
 	/** @var string[]|null Valid names computed for the current generator set. */
 	private static ?array $cachedParams = null;
+
+	/** @var array<string,true> Membership lookup for string parameter names. */
+	private static array $cachedParamLookup = [];
 
 	/**
 	 * Valid parameter names across all generators
@@ -307,8 +311,14 @@ class Validator {
 		$validatedParams = [];
 		$validParams = static::getValidParams();
 
+		// Subclasses may override getValidParams(). Preserve their strict
+		// membership semantics, as well as strict comparison of integer keys.
+		$useLookup = static::class === self::class;
 		foreach ( $params as $paramKey => $paramData ) {
-			if ( in_array( $paramKey, $validParams, true ) ) {
+			$valid = $useLookup && is_string( $paramKey )
+				? isset( self::$cachedParamLookup[$paramKey] )
+				: in_array( $paramKey, $validParams, true );
+			if ( $valid ) {
 				$validatedParams[$paramKey] = $paramData;
 			}
 		}
@@ -322,9 +332,12 @@ class Validator {
 	 * @return string[]
 	 */
 	public static function getValidParams(): array {
-		// Generator registration can extend the public valid-name list.
-		$fingerprint = implode( "\0", self::$validParameterNames );
-		if ( self::$cachedParams !== null && self::$cachedParamsFingerprint === $fingerprint ) {
+		// Both public lists can be extended by extensions. Copy-on-write
+		// snapshots avoid a new fingerprint string on every validation.
+		if ( self::$cachedParams !== null &&
+			self::$cachedParameterNames === self::$validParameterNames &&
+			self::$cachedLanguageCodes === self::$isoLanguageCodes
+		) {
 			return self::$cachedParams;
 		}
 
@@ -338,8 +351,15 @@ class Validator {
 			$params[] = 'hreflang_' . $langCode;
 		}
 
-		self::$cachedParamsFingerprint = $fingerprint;
+		self::$cachedParameterNames = self::$validParameterNames;
+		self::$cachedLanguageCodes = self::$isoLanguageCodes;
 		self::$cachedParams = array_values( array_unique( $params ) );
+		self::$cachedParamLookup = [];
+		foreach ( self::$cachedParams as $name ) {
+			if ( is_string( $name ) ) {
+				self::$cachedParamLookup[$name] = true;
+			}
+		}
 		return self::$cachedParams;
 	}
 }
