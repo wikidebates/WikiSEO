@@ -42,6 +42,55 @@ Les balises `article:*` ne sont generees que pour `og:type=article`.
 Le logo n'est jamais supprime automatiquement : c'est le comportement que
 Wikidebates a explicitement choisi de conserver.
 
+## Desactivation de WikiSEO par page (PHP)
+
+WikiSEO expose deux hooks configurables qui laissent les autres extensions
+choisir son comportement **sans heuristique sur le titre ou l'espace de noms** :
+
+- `WikiSEOPageMetadataMode( OutputPage $out, string &$mode )` : intercepte
+  le rendu de la page avant les generateurs WikiSEO et avant le canonical.
+- `WikiSEOPageRevisionMode( Title $title, ParserOutput $output, string &$mode )` :
+  permet de desactiver les mises a jour differees de description et d'image
+  sur les revisions gerees par une autre extension.
+
+Pour les deux hooks, `$mode` commence a `full` et accepte :
+
+| Mode | Balises produites |
+| --- | --- |
+| `full` | Fonctionnement historique de WikiSEO, y compris ses metadonnees automatiques |
+| `global-only` | Uniquement les balises techniques non concurrentes : verification de site, liens hreflang de configuration et protections robots |
+| `off` | Aucun ajout WikiSEO au rendu, aucune actualisation differee de l'image ou de la description |
+
+Wikidebates utilise `global-only` quand son marqueur natif
+`wikidebates-native-seo` indique `wd_kind=debate` ou `wd_kind=argument`.
+Les debat et argument gardent donc le SEO issu de Wikidebates (y compris le
+JSON-LD) et les verifications globales, sans generateurs de page concurrents.
+Un rendu sans marqueur conserve le mode `full`.
+
+Exemple supplementaire pour un administrateur voulant desactiver **toute**
+contribution de WikiSEO sur une page particuliere, dans `LocalSettings.php` :
+
+```php
+$wgHooks['WikiSEOPageMetadataMode'][] = static function(
+	\OutputPage $out, string &$mode
+): void {
+	$title = $out->getTitle();
+	if ( $title !== null && $title->getPrefixedText() === 'Aide:Essai' ) {
+		$mode = 'off';
+	}
+};
+```
+
+Ce callback n'agit que sur l'affichage de la page. Si la page contient du
+`{{#seo:…}}` ancien, la fonction de parser continue de fonctionner et
+d'enregistrer ses valeurs ; elles ne sont pas emises dans le HTML tant que
+le rendu est en mode `off`. Pour des exclusions permanentes, utiliser aussi
+le hook `WikiSEOPageRevisionMode` et la meme source de verite.
+
+**Attention :** le mode `off` supprime aussi les balises de verification de
+domaine produites par WikiSEO. Choisir `global-only` si elles doivent rester.
+Aucune configuration n'est changee automatiquement par la mise a jour.
+
 ## Modele MediaWiki facultatif
 
 Le fichier `docs/templates/SEO_projet.wikitext` est le contenu propose
