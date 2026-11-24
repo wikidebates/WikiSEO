@@ -166,6 +166,12 @@ final class InterlanguageHreflang {
 		) {
 			return null;
 		}
+		// Only explicitly configured aliases may change a remote namespace.
+		// Canonical namespace names (e.g. Project) need not be the localized
+		// URL prefix, and a colon may also be part of an ordinary title.
+		if ( is_array( $route ) && is_array( $route['namespaceAliases'] ?? null ) ) {
+			$title = self::localizedNamespaceTitle( $title, $route['namespaceAliases'] );
+		}
 		$target = TitleValue::tryNew( NS_MAIN, $title );
 		if ( $target === null ) {
 			return null;
@@ -187,6 +193,26 @@ final class InterlanguageHreflang {
 			return null;
 		}
 		return self::absoluteUrl( str_replace( '$1', wfUrlencode( $dbkey ), $route ) );
+	}
+
+	private static function localizedNamespaceTitle( string $title, array $aliases ): string {
+		if ( !str_contains( $title, ':' ) ) {
+			return $title;
+		}
+		[ $prefix, $name ] = explode( ':', $title, 2 );
+		$prefix = mb_strtolower( str_replace( ' ', '_', trim( $prefix ) ) );
+		foreach ( $aliases as $alias => $canonical ) {
+			if ( !is_string( $alias ) || !is_string( $canonical ) ||
+				$canonical === '' || preg_match( '~[:#<>/\\\\\x00-\x1f\x7f]~', $canonical )
+			) {
+				continue;
+			}
+			if ( mb_strtolower( str_replace( ' ', '_', trim( $alias ) ) ) === $prefix ) {
+				// MediaWiki ignores whitespace adjacent to a namespace colon.
+				return $canonical . ':' . ltrim( $name, " _" );
+			}
+		}
+		return $title;
 	}
 
 	private static function absoluteUrl( $url ): ?string {
