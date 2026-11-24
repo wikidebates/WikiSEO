@@ -195,8 +195,7 @@ final class InterlanguageHreflang {
 			return null;
 		}
 		$parts = parse_url( $url );
-		return is_array( $parts ) && !isset( $parts['user'], $parts['pass'] ) &&
-			!isset( $parts['user'] ) && !isset( $parts['pass'] ) && !isset( $parts['fragment'] )
+		return is_array( $parts ) && !isset( $parts['user'] ) && !isset( $parts['pass'] ) && !isset( $parts['fragment'] )
 			? $url : null;
 	}
 
@@ -214,7 +213,7 @@ final class InterlanguageHreflang {
 	}
 
 	private static function hasRel( array $attrs, string $rel ): bool {
-		return in_array( $rel, preg_split( '/\s+/', strtolower( $attrs['rel'] ?? '' ) ), true );
+		return isset( $attrs['rel'] ) && in_array( $rel, preg_split( '/\s+/', strtolower( $attrs['rel'] ) ), true );
 	}
 
 	private static function isNoindex( $html ): bool {

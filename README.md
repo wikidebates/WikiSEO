@@ -350,3 +350,7 @@ This can be disabled on a per-page basis by setting `modified_time=-` through th
 Metadata generators live in the ``includes/Generator/Plugins`` directory.  
 A generator has to implement the ``GeneratorInterface``.  
 To load the generator simply add its name to ``$wgMetadataGenerators``.
+
+## Interwiki language alternates
+
+For centralized multilingual farms, see [the opt-in hreflang configuration](docs/interlanguage-hreflang.md). It uses already available OutputPage language links and leaves the legacy behavior unchanged when disabled.
