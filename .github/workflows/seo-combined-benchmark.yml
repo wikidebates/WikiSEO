@@ -1,0 +1,77 @@
+name: WikiSEO - combined deployed vs optimized benchmark
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-combined-benchmark.yml'
+      - 'tests/integration/combinedBenchmark.php'
+      - 'tests/integration/summarizeBenchmark.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paired-benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: .candidate
+      - uses: actions/checkout@v4
+        with:
+          repository: wikimedia/mediawiki
+          ref: 1.43.11
+          path: .mw-lab
+      - uses: actions/checkout@v4
+        with:
+          repository: wikidebates/wikidebates-core
+          ref: 21d0c0d27ac72b9392d859d695c56230a868d772
+          path: .wd-lab
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl, xml, pdo_sqlite, sqlite3
+          coverage: none
+          tools: composer
+      - name: Install disposable MediaWiki dependencies
+        working-directory: .mw-lab
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Benchmark identical cases in alternating version order
+        shell: bash
+        env:
+          MW_INSTALL_PATH: ${{ github.workspace }}/.mw-lab
+          WD_TEST_EXTENSIONS: WikiSEO
+          WD_SEO_LAB_BOOTSTRAP: ${{ github.workspace }}/.wd-lab/tests/mediawikiEnvironment.php
+        run: |
+          set -euo pipefail
+          baseline=3f52f9d7d196bcaed541201f4412f4bf1e6b71e1
+          before="$RUNNER_TEMP/wikiseo-deployed"
+          candidate="$GITHUB_WORKSPACE/.candidate"
+          git -C "$candidate" fetch --no-tags --depth=1 origin "$baseline"
+          git -C "$candidate" worktree add --detach "$before" "$baseline"
+          ext="$MW_INSTALL_PATH/extensions/WikiSEO"
+          test ! -e "$ext"
+          trap 'rm -f "$ext"; git -C "$candidate" worktree remove --force "$before"' EXIT
+          results="$RUNNER_TEMP/wikiseo-combined.jsonl"
+          : > "$results"
+          for round in 1 2; do
+            if [ "$round" = 1 ]; then
+              versions="baseline optimized"
+            else
+              versions="optimized baseline"
+            fi
+            for case in ordinary-empty ordinary-persisted ordinary-text ordinary-local-file ordinary-separate-x native-debate native-argument native-hreflang parser; do
+              for version in $versions; do
+                target="$candidate"
+                if [ "$version" = baseline ]; then target="$before"; fi
+                if [ -L "$ext" ]; then rm "$ext"; fi
+                ln -s "$target" "$ext"
+                php -d opcache.enable_cli=0 -d display_errors=1 -d error_reporting=E_ALL \
+                  "$candidate/tests/integration/combinedBenchmark.php" "$case" "$version" "$round" | tee -a "$results"
+              done
+            done
+          done
+          python3 "$candidate/tests/integration/summarizeBenchmark.py" "$results" | tee -a "$GITHUB_STEP_SUMMARY"
