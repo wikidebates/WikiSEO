@@ -1,85 +1,78 @@
 <?php
-/**
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * @file
- */
 
 declare( strict_types=1 );
 
 namespace MediaWiki\Extension\WikiSEO\Generator\Plugins;
 
+use InvalidArgumentException;
+use MediaWiki\Extension\WikiSEO\Generator\AbstractBaseGenerator;
+use MediaWiki\Extension\WikiSEO\Generator\GeneratorInterface;
+use MediaWiki\Extension\WikiSEO\MetaValues;
+use OutputPage;
+
 /**
- * Twitter metadata generator
- *
- * @package MediaWiki\Extension\WikiSEO\Generator\Plugins
+ * X/Twitter Card metadata. Intentionally does not extend OpenGraph: the old
+ * inheritance emitted Open Graph tags twice without emitting full X cards.
  */
-class Twitter extends OpenGraph {
-	/**
-	 * Twitter constructor.
-	 * Updates some tag name conversions
-	 */
-	public function __construct() {
-		$this->tags[] = 'twitter_site';
-		$this->tags[] = 'twitter_card';
+class Twitter extends AbstractBaseGenerator implements GeneratorInterface {
+	protected $tags = [
+		'title', 'description', 'image', 'image_alt',
+		'twitter_card', 'twitter_site', 'twitter_creator',
+		'twitter_title', 'twitter_description', 'twitter_image', 'twitter_image_alt',
+	];
 
-		$this->conversions = array_merge(
-			$this->conversions, [
-				'twitter_site' => 'twitter:site',
-				'twitter_card' => 'twitter:card'
-			]
-		);
+	public function init( array $metadata, OutputPage $out ): void {
+		$this->metadata = $metadata;
+		$this->outputPage = $out;
+		$this->setFallbackImageIfEnabled();
+		$this->preprocessFileMetadata();
 	}
 
-	/**
-	 * Add the metadata to the OutputPage
-	 *
-	 * @return void
-	 */
 	public function addMetadata(): void {
-		$this->addTwitterSiteHandleTag();
-
-		parent::addMetadata();
-
-		$twitterCardType = $this->getConfigValue( 'TwitterCardType' ) ?? 'summary_large_image';
-		if ( !empty( $this->metadata['twitter_card'] ) ) {
-			$twitterCardType = $this->metadata['twitter_card'];
+		$card = $this->metadata['twitter_card'] ?? $this->getConfigValue( 'TwitterCardType' );
+		if ( !in_array( $card, [ 'summary', 'summary_large_image' ], true ) ) {
+			$card = 'summary_large_image';
 		}
+		$this->outputPage->addMeta( 'twitter:card', $card );
 
-		$this->outputPage->addMeta( 'twitter:card', $twitterCardType );
+		$title = $this->metadata['twitter_title'] ?? $this->metadata['title'] ?? null;
+		if ( $title === null ) {
+			$pageTitle = $this->outputPage->getTitle();
+			$title = $pageTitle !== null ? $pageTitle->getPrefixedText() : strip_tags( $this->outputPage->getPageTitle() );
+		}
+		$this->addIfPresent( 'twitter:title', $title );
+		$this->addIfPresent( 'twitter:description',
+			$this->metadata['twitter_description'] ?? $this->metadata['description'] ?? null );
+
+		$image = $this->metadata['twitter_image'] ?? $this->metadata['image'] ?? null;
+		$socialImage = $this->getSocialMediaImageUrl();
+		if ( !isset( $this->metadata['twitter_image'] ) && $socialImage !== null ) {
+			$image = $socialImage;
+		}
+		if ( isset( $this->metadata['twitter_image'] ) && is_string( $image ) ) {
+			try {
+				$image = $this->getFileInfo( $this->getFileObject( $image ) )['url'];
+			} catch ( InvalidArgumentException $e ) {
+				$image = MetaValues::httpUrl( $image );
+			}
+		}
+		$this->addIfPresent( 'twitter:image', $image );
+		$this->addIfPresent( 'twitter:image:alt',
+			$this->metadata['twitter_image_alt'] ?? $this->metadata['image_alt'] ?? null );
+
+		// A global site handle takes precedence for compatibility with WikiSEO 2.7.
+		$this->addIfPresent( 'twitter:site',
+			$this->getConfigValue( 'TwitterSiteHandle' ) ?? $this->metadata['twitter_site'] ?? null );
+		$this->addIfPresent( 'twitter:creator', $this->metadata['twitter_creator'] ?? null );
 	}
 
-	/**
-	 * Add the global twitter site handle from $wgTwitterSiteHandle to the meta tags
-	 * If $wgTwitterSiteHandle is not null setting the handle via tag or hook is ignored
-	 */
-	private function addTwitterSiteHandleTag(): void {
-		$twitterSiteHandle = $this->getConfigValue( 'TwitterSiteHandle' ) ??
-			$this->metadata['twitter_site'] ??
-			null;
+	public function getAllowedParameterNames(): array {
+		return $this->tags;
+	}
 
-		if ( $twitterSiteHandle === null ) {
-			return;
+	private function addIfPresent( string $name, $value ): void {
+		if ( is_string( $value ) && trim( $value ) !== '' ) {
+			$this->outputPage->addMeta( $name, $value );
 		}
-
-		unset(
-			$this->metadata['twitter_site'],
-			$this->tags['twitter_site'],
-			$this->conversions['twitter_site']
-		);
-
-		$this->outputPage->addMeta( 'twitter:site', $twitterSiteHandle );
 	}
 }

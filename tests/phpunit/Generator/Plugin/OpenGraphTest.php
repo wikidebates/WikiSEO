@@ -35,7 +35,8 @@ class OpenGraphTest extends GeneratorTestBase {
 
 		self::assertArrayHasKey( 'og:title', $out->getHeadItemsArray() );
 		self::assertArrayHasKey( 'og:description', $out->getHeadItemsArray() );
-		self::assertArrayHasKey( 'article:tag', $out->getHeadItemsArray() );
+		self::assertArrayNotHasKey( 'article:tag', $out->getHeadItemsArray() );
+		self::assertStringContainsString( 'content="website"', $out->getHeadItemsArray()['og:type'] );
 
 		self::assertStringContainsString( $out->getTitle()->getFullURL(), $out->getHeadItemsArray()['og:url'] );
 	}
@@ -52,8 +53,8 @@ class OpenGraphTest extends GeneratorTestBase {
 		$generator->init( [], $out );
 		$generator->addMetadata();
 
-		self::assertArrayHasKey( 'article:published_time', $out->getHeadItemsArray() );
-		self::assertArrayHasKey( 'article:modified_time', $out->getHeadItemsArray() );
+		self::assertArrayNotHasKey( 'article:published_time', $out->getHeadItemsArray() );
+		self::assertArrayNotHasKey( 'article:modified_time', $out->getHeadItemsArray() );
 	}
 
 	/**
@@ -67,6 +68,7 @@ class OpenGraphTest extends GeneratorTestBase {
 		$generator = new OpenGraph();
 		$generator->init(
 			[
+				'type' => 'article',
 				'published_time' => '2012-01-01',
 			], $out
 		);
@@ -77,7 +79,7 @@ class OpenGraphTest extends GeneratorTestBase {
 			'2012-01-01',
 			$out->getHeadItemsArray()['article:published_time']
 		);
-		self::assertArrayHasKey( 'article:modified_time', $out->getHeadItemsArray() );
+		self::assertArrayNotHasKey( 'article:modified_time', $out->getHeadItemsArray() );
 	}
 
 	/**
@@ -236,9 +238,10 @@ class OpenGraphTest extends GeneratorTestBase {
 	public function testUnsetModifiedTime() {
 		$out = $this->newInstance();
 
-		$generator = new SchemaOrg();
+		$generator = new OpenGraph();
 		$generator->init(
 			[
+				'type' => 'article',
 				'modified_time' => '-',
 			], $out
 		);

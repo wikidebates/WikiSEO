@@ -1,5 +1,9 @@
 # MediaWiki WikiSEO extension
 
+> Wikidebates maintainers: see [modern metadata defaults, supported parameters,
+> opt-in project templates and deployment checks](docs/WIKIDEBATES.md).
+
+
 **Starting from 2023-01-23, WikiSEO requires MediaWiki 1.39.0**
 
 The WikiSEO extension allows you to replace, append or prepend the html title tag content, and allows you to add common SEO meta keywords and a meta description.  

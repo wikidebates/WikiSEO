@@ -25,6 +25,7 @@ use Html;
 use MediaWiki\Extension\WikiSEO\Generator\AbstractBaseGenerator;
 use MediaWiki\Extension\WikiSEO\Generator\GeneratorInterface;
 use MediaWiki\Extension\WikiSEO\WikiSEO;
+use MediaWiki\Extension\WikiSEO\MetaValues;
 use MediaWiki\MediaWikiServices;
 use OutputPage;
 
@@ -49,6 +50,8 @@ class OpenGraph extends AbstractBaseGenerator implements GeneratorInterface {
 		'image_width',
 		'image_height',
 		'image_alt',
+		'image_type',
+		'image_secure_url',
 		'keywords',
 		'locale',
 		'modified_time',
@@ -69,6 +72,8 @@ class OpenGraph extends AbstractBaseGenerator implements GeneratorInterface {
 		'image_width'  => 'og:image:width',
 		'image_height' => 'og:image:height',
 		'image_alt'    => 'og:image:alt',
+		'image_type'   => 'og:image:type',
+		'image_secure_url' => 'og:image:secure_url',
 
 		'locale'      => 'og:locale',
 		'type'        => 'og:type',
@@ -102,10 +107,48 @@ class OpenGraph extends AbstractBaseGenerator implements GeneratorInterface {
 		$this->metadata = $metadata;
 		$this->outputPage = $out;
 
-		$this->setFallbackImageIfEnabled();
+		$this->metadata['type'] = MetaValues::openGraphType( $metadata );
+		if ( $this->metadata['type'] !== 'article' ) {
+			// article:* properties must not appear on generic project or help pages.
+			foreach ( [ 'author', 'modified_time', 'published_time', 'section', 'keywords' ] as $key ) {
+				unset( $this->metadata[$key] );
+			}
+		} else {
+			foreach ( [ 'modified_time', 'published_time' ] as $key ) {
+				$date = MetaValues::date( $this->metadata[$key] ?? null );
+				if ( $date === null ) {
+					unset( $this->metadata[$key] );
+				} else {
+					$this->metadata[$key] = $date;
+				}
+			}
+		}
 
+		$this->setFallbackImageIfEnabled();
+		$originalImage = $this->metadata['image'] ?? null;
 		$this->preprocessFileMetadata();
-		$this->setModifiedPublishedTime();
+		if ( is_string( $originalImage ) && !isset( $this->metadata['image_type'] ) ) {
+			try {
+				$this->metadata['image_type'] = $this->getFileObject( $originalImage )->getMimeType();
+			} catch ( \InvalidArgumentException $e ) {
+				// An external image URL has no local file metadata.
+			}
+		}
+		$secure = MetaValues::secureUrl(
+			$this->metadata['image_secure_url'] ?? $this->metadata['image'] ?? null
+		);
+		if ( $secure !== null ) {
+			$this->metadata['image_secure_url'] = $secure;
+		} else {
+			unset( $this->metadata['image_secure_url'] );
+		}
+		if ( !isset( $this->metadata['locale'] ) ) {
+			$lang = MediaWikiServices::getInstance()->getContentLanguage()->getCode();
+			$locales = [ 'fr' => 'fr_FR', 'en' => 'en_US' ];
+			if ( isset( $locales[$lang] ) ) {
+				$this->metadata['locale'] = $locales[$lang];
+			}
+		}
 	}
 
 	/**
@@ -116,10 +159,20 @@ class OpenGraph extends AbstractBaseGenerator implements GeneratorInterface {
 	public function addMetadata(): void {
 		$this->addTitleMeta();
 		$this->addSiteName();
+		if ( isset( $this->metadata['locale_alternate'] ) ) {
+			foreach ( preg_split( '/\s*,\s*/', (string)$this->metadata['locale_alternate'] ) as $locale ) {
+				if ( preg_match( '/^[a-z]{2,3}_[A-Z]{2}$/D', $locale ) ) {
+					$this->outputPage->addHeadItem(
+						'og:locale:alternate:' . $locale,
+						Html::element( 'meta', [ 'property' => 'og:locale:alternate', 'content' => $locale ] )
+					);
+				}
+			}
+		}
 
 		if ( $this->outputPage->getTitle() !== null ) {
-			$url = $this->outputPage->getTitle()->getFullURL();
-
+			$url = MetaValues::httpUrl( $this->metadata['canonical'] ?? null ) ??
+				$this->outputPage->getTitle()->getFullURL();
 			$url = WikiSEO::protocolizeUrl( $url, $this->outputPage->getRequest() );
 
 			$this->outputPage->addHeadItem(
@@ -141,27 +194,31 @@ class OpenGraph extends AbstractBaseGenerator implements GeneratorInterface {
 			}
 		}
 
+		$socialImage = $this->getSocialMediaImageUrl();
+		if ( $socialImage !== null ) {
+			$this->metadata['image'] = $socialImage;
+			$this->metadata['image_width'] = $this->getConfigValue( 'WikiSeoSocialImageWidth' );
+			$this->metadata['image_height'] = $this->getConfigValue( 'WikiSeoSocialImageHeight' );
+			$this->metadata['image_type'] = 'image/jpeg';
+			$secure = MetaValues::secureUrl( $socialImage );
+			if ( $secure !== null ) {
+				$this->metadata['image_secure_url'] = $secure;
+			} else {
+				unset( $this->metadata['image_secure_url'] );
+			}
+		}
+
+		// Do not publish image dimensions, format or alt text for an image
+		// provided by a different extension when WikiSEO's fallback is skipped.
+		$skipFallback = $socialImage === null && $ogImageExists && $this->fallbackImageActive;
 		foreach ( $this->tags as $tag ) {
+			if ( $skipFallback && in_array( $tag, [
+				'image', 'image_width', 'image_height', 'image_alt', 'image_type', 'image_secure_url'
+			], true ) ) {
+				continue;
+			}
 			if ( array_key_exists( $tag, $this->metadata ) ) {
 				$convertedTag = $this->conversions[$tag];
-
-				if ( $convertedTag === 'og:image' ) {
-					if ( $this->getConfigValue( 'WikiSeoEnableSocialImages' ) ) {
-						$this->metadata['image_width'] = $this->getConfigValue( 'WikiSeoSocialImageWidth' );
-						$this->metadata['image_height'] = $this->getConfigValue( 'WikiSeoSocialImageHeight' );
-						$this->metadata['image'] = MediaWikiServices::getInstance()->getUrlUtils()->expand(
-							sprintf(
-								'/rest.php/wikiseo/v1/socialmediaimage/%s',
-								urlencode( ltrim( $this->outputPage->getTitle()->getLinkURL(), '/' ) )
-							)
-						);
-					// If an og:image is set, and we are using the fallback image, we skip our image
-					} elseif ( $ogImageExists && $this->fallbackImageActive ) {
-						unset( $this->tags['image_width'], $this->tags['image_height'] );
-						continue;
-					}
-				}
-
 				$this->outputPage->addHeadItem(
 					$convertedTag, Html::element(
 						'meta', [
@@ -187,11 +244,11 @@ class OpenGraph extends AbstractBaseGenerator implements GeneratorInterface {
 	 * @return void
 	 */
 	protected function addTitleMeta(): void {
-		$title = $this->outputPage->getHTMLTitle();
-
-		if ( $this->outputPage->getTitle() !== null ) {
-			$title = $this->outputPage->getTitle()->getPrefixedText() ?? $this->metadata['title'] ?? $title;
-		}
+		$title = $this->metadata['title'] ?? (
+			$this->outputPage->getTitle() !== null
+				? $this->outputPage->getTitle()->getPrefixedText()
+				: $this->outputPage->getHTMLTitle()
+		);
 
 		$this->outputPage->addHeadItem(
 			$this->titlePropertyName, Html::element(

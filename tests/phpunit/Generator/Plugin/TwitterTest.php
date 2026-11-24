@@ -12,7 +12,6 @@ class TwitterTest extends GeneratorTestBase {
 	/**
 	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::init
 	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::addMetadata
-	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\OpenGraph::addMetadata
 	 */
 	public function testAddMetadata() {
 		$metadata = [
@@ -34,7 +33,7 @@ class TwitterTest extends GeneratorTestBase {
 
 	/**
 	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::init
-	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::addTwitterSiteHandleTag
+	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::addMetadata
 	 * @covers \MediaWiki\Extension\WikiSEO\Generator\AbstractBaseGenerator::getConfigValue
 	 */
 	public function testAddTwitterSiteHandle() {
@@ -53,7 +52,7 @@ class TwitterTest extends GeneratorTestBase {
 
 	/**
 	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::init
-	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::addTwitterSiteHandleTag
+	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::addMetadata
 	 */
 	public function testIgnoreMetaIfGlobal() {
 		$this->overrideConfigValue( 'TwitterSiteHandle', '@TestKey' );
@@ -88,7 +87,7 @@ class TwitterTest extends GeneratorTestBase {
 	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::addMetadata
 	 */
 	public function testSummaryType() {
-		// Unset default image if set
+		// Invalid explicit card values fall back to a safe supported type.
 		$this->overrideConfigValue( 'TwitterCardType', 'summary' );
 
 		$out = $this->newInstance();
@@ -112,17 +111,17 @@ class TwitterTest extends GeneratorTestBase {
 		$out = $this->newInstance();
 
 		$generator = new Twitter();
-		$generator->init( [ 'twitter_card' => 'override_card' ], $out );
+		$generator->init( [ 'twitter_card' => 'invalid_card' ], $out );
 		$generator->addMetadata();
 
 		$this->assertArraySubmapSame( [ [
-			'twitter:card', 'override_card'
+			'twitter:card', 'summary_large_image'
 		] ], $out->getMetaTags() );
 	}
 
 	/**
 	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::addMetadata
-	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::addTwitterSiteHandleTag
+	 * @covers \MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter::addMetadata
 	 */
 	public function testHandleNotSet() {
 		// Unset default image if set

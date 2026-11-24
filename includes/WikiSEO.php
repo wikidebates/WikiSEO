@@ -104,9 +104,9 @@ class WikiSEO {
 			return;
 		}
 
-		$result =
-		$this->loadPagePropsFromDb( $outputPage->getTitle() ) ??
-		$this->loadPagePropsFromOutputPage( $outputPage ) ?? [];
+		// Prefer freshly rendered values over persisted values during previews/edits.
+		$result = $this->loadPagePropsFromOutputPage( $outputPage ) ??
+			$this->loadPagePropsFromDb( $outputPage->getTitle() ) ?? [];
 
 		$this->setMetadata( $result );
 	}
@@ -165,6 +165,11 @@ class WikiSEO {
 	 * @param OutputPage $out
 	 */
 	public function addMetadataToPage( OutputPage $out ): void {
+		// This also protects callers invoking WikiSEO directly, without
+		// passing through its BeforePageDisplay hook.
+		if ( PagePolicy::forOutput( $out ) !== PagePolicy::FULL ) {
+			return;
+		}
 		if ( $out->isArticle() && !isset( $out->getRequest()->getQueryValues()['diff'] ) ) {
 			$this->modifyPageTitle( $out );
 		}
@@ -278,6 +283,24 @@ class WikiSEO {
 	}
 
 	/**
+	 * Only merge SEO props produced by the current parser render. Reading the
+	 * database here resurrected values removed from a page or shared template.
+	 *
+	 * @param ParserOutput $output
+	 * @return array
+	 */
+	private function loadCurrentRenderProps( ParserOutput $output ): array {
+		$result = [];
+		foreach ( Validator::getValidParams() as $name ) {
+			$value = $output->getPageProperty( $name );
+			if ( $value !== null && $value !== false ) {
+				$result[$name] = $value;
+			}
+		}
+		return $result;
+	}
+
+	/**
 	 * Instantiates the metadata generators from $wgMetadataGenerators
 	 */
 	private function instantiateMetadataPlugins(): void {
@@ -382,9 +405,8 @@ class WikiSEO {
 		);
 
 		foreach ( $this->metadata as $key => $value ) {
-			if ( $outputPage->getPageProperty( $key ) === null ) {
-				$outputPage->setPageProperty( $key, $value );
-			}
+			// The most recent #seo invocation in this parser render wins.
+			$outputPage->setPageProperty( $key, $value );
 
 			if ( ExtensionRegistry::getInstance()->isLoaded( 'PageImages' ) &&
 				$key === 'image' ) {
@@ -439,7 +461,7 @@ class WikiSEO {
 			$tags['manualDescription'] = $tags['description'];
 			unset( $tags['description'] );
 		}
-		$tags = array_merge( $seo->loadPagePropsFromDb( $frame->getTitle() ) ?? [], $tags );
+		$tags = array_merge( $seo->loadCurrentRenderProps( $parser->getOutput() ), $tags );
 
 		$seo->setMetadata( $tags, $parser->getOutput() );
 
@@ -471,7 +493,7 @@ class WikiSEO {
 			unset( $args['description'] );
 		}
 
-		$args = array_merge( $seo->loadPagePropsFromDb( $frame->getTitle() ) ?? [], $args );
+		$args = array_merge( $seo->loadCurrentRenderProps( $parser->getOutput() ), $args );
 
 		$seo->setMetadata( $args, $parser->getOutput() );
 

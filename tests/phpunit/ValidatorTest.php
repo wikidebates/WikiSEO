@@ -85,19 +85,23 @@ class ValidatorTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testLanguages() {
 		$langs = [
+			'hreflang_af-za' => '',
 			'hreflang_de-de' => '',
 			'hreflang_nl-nl' => '',
+			'hreflang_zh-tw' => '',
 			'hreflang_invalid' => '',
 		];
 
 		$valid = [
+			'hreflang_af-za' => '',
 			'hreflang_de-de' => '',
 			'hreflang_nl-nl' => '',
+			'hreflang_zh-tw' => '',
 		];
 
 		$validatedArray = $this->validator->validateParams( $langs );
 
-		self::assertCount( 2, $validatedArray );
+		self::assertCount( 4, $validatedArray );
 		$this->assertArrayEquals( $valid, $validatedArray );
 	}
 }
