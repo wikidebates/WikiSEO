@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace MediaWiki\Extension\WikiSEO\Generator\Plugins;
 
+use Exception;
 use InvalidArgumentException;
 use MediaWiki\Extension\WikiSEO\Generator\AbstractBaseGenerator;
 use MediaWiki\Extension\WikiSEO\Generator\GeneratorInterface;
@@ -108,7 +109,11 @@ class SchemaOrg extends AbstractBaseGenerator implements GeneratorInterface {
 		if ( $this->getConfigValue( 'WikiSeoDisableLogoFallbackImage' ) === true ) {
 			return null;
 		}
-		$logo = $this->getWikiLogo();
+		try {
+			$logo = $this->getWikiLogo();
+		} catch ( Exception $e ) {
+			return null;
+		}
 		return is_string( $logo ) && $logo !== ''
 			? [ '@type' => 'ImageObject', 'url' => $logo ] : null;
 	}
@@ -123,9 +128,13 @@ class SchemaOrg extends AbstractBaseGenerator implements GeneratorInterface {
 		if ( $server !== null ) {
 			$publisher['url'] = $server;
 		}
-		$logo = $this->getWikiLogo();
-		if ( is_string( $logo ) && $logo !== '' ) {
-			$publisher['logo'] = [ '@type' => 'ImageObject', 'url' => $logo ];
+		try {
+			$logo = $this->getWikiLogo();
+			if ( is_string( $logo ) && $logo !== '' ) {
+				$publisher['logo'] = [ '@type' => 'ImageObject', 'url' => $logo ];
+			}
+		} catch ( Exception $e ) {
+			// The publisher remains valid even when its logo cannot be resolved.
 		}
 		return $publisher;
 	}
