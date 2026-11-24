@@ -67,6 +67,24 @@ jobs:
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/parser_work.php "$worktree" --baseline
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/generators.php "$worktree" --baseline
 
+      - name: Compare shared image resolution and exact output with previous implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=ebc7e662c316a2000cf435b8cea94a39b3ebd893
+          git fetch --no-tags --depth=1 origin "$baseline"
+          worktree="$RUNNER_TEMP/wikiseo-image-before"
+          git worktree add --detach "$worktree" "$baseline"
+          trap 'git worktree remove --force "$worktree"' EXIT
+          before="$(php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/shared_images.php "$worktree" --baseline)"
+          after="$(php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/shared_images.php)"
+          printf '%s\n%s\n' "$before" "$after"
+          python3 - "$before" "$after" <<'PY'
+          import json, sys
+          before, after = [json.loads(line.removeprefix("WD_SHARED_IMAGE_WORK ")) for line in sys.argv[1:]]
+          assert before["html_sha256"] == after["html_sha256"], "Metadata output changed"
+          PY
+
   integration:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

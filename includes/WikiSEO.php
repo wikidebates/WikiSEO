@@ -24,6 +24,10 @@ namespace MediaWiki\Extension\WikiSEO;
 use ConfigException;
 use ExtensionRegistry;
 use MediaWiki\Extension\WikiSEO\Generator\GeneratorInterface;
+use MediaWiki\Extension\WikiSEO\Generator\ImageLookup;
+use MediaWiki\Extension\WikiSEO\Generator\Plugins\OpenGraph;
+use MediaWiki\Extension\WikiSEO\Generator\Plugins\SchemaOrg;
+use MediaWiki\Extension\WikiSEO\Generator\Plugins\Twitter;
 use MediaWiki\Extension\WikiSEO\Generator\MetaTag;
 use MediaWiki\MediaWikiServices;
 use OutputPage;
@@ -181,9 +185,27 @@ class WikiSEO {
 			]
 		);
 
+		$imageLookup = null;
 		foreach ( $this->generatorInstances as $generatorInstance ) {
-			$generatorInstance->init( $this->metadata, $out );
-			$generatorInstance->addMetadata();
+			// Only the exact built-in generators share image lookups. An
+			// optional/custom generator may mutate the context or file state,
+			// so start a new scope after it rather than sharing across it.
+			$share = in_array( get_class( $generatorInstance ),
+				[ OpenGraph::class, Twitter::class, SchemaOrg::class ], true );
+			if ( $share ) {
+				$imageLookup ??= new ImageLookup();
+				$generatorInstance->setImageLookup( $imageLookup );
+			} else {
+				$imageLookup = null;
+			}
+			try {
+				$generatorInstance->init( $this->metadata, $out );
+				$generatorInstance->addMetadata();
+			} finally {
+				if ( $share ) {
+					$generatorInstance->setImageLookup( null );
+				}
+			}
 		}
 	}
 

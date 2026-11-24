@@ -67,6 +67,14 @@ abstract class AbstractBaseGenerator {
 	 */
 	private static $config;
 
+	/** Shared only while a single built-in metadata generation pass runs. */
+	private ?ImageLookup $imageLookup = null;
+
+	/** @internal WikiSEO attaches and releases this scope around generator calls. */
+	public function setImageLookup( ?ImageLookup $lookup ): void {
+		$this->imageLookup = $lookup;
+	}
+
 	/**
 	 * Loads a config value for a given key from the main config
 	 * Returns null on if an ConfigException was thrown
@@ -105,21 +113,40 @@ abstract class AbstractBaseGenerator {
 	 * @throws InvalidArgumentException
 	 */
 	protected function getFileObject( string $name ): File {
+		$cached = $this->imageLookup->files[$name] ?? null;
+		if ( $cached instanceof File ) {
+			return $cached;
+		}
+		if ( is_string( $cached ) ) {
+			throw new InvalidArgumentException( $cached );
+		}
+
 		$title = MediaWikiServices::getInstance()->getTitleFactory()->makeTitleSafe(
 			NS_FILE,
 			$name
 		);
 
 		if ( $title === null ) {
-			throw new InvalidArgumentException( sprintf( 'Title %s is invalid.', $name ) );
+			$message = sprintf( 'Title %s is invalid.', $name );
+			if ( $this->imageLookup !== null ) {
+				$this->imageLookup->files[$name] = $message;
+			}
+			throw new InvalidArgumentException( $message );
 		}
 
 		$file = MediaWikiServices::getInstance()->getRepoGroup()->findFile( $title );
 
 		if ( $file === false ) {
-			throw new InvalidArgumentException( sprintf( 'File %s not found.', $name ) );
+			$message = sprintf( 'File %s not found.', $name );
+			if ( $this->imageLookup !== null ) {
+				$this->imageLookup->files[$name] = $message;
+			}
+			throw new InvalidArgumentException( $message );
 		}
 
+		if ( $this->imageLookup !== null ) {
+			$this->imageLookup->files[$name] = $file;
+		}
 		return $file;
 	}
 
@@ -131,17 +158,26 @@ abstract class AbstractBaseGenerator {
 	 * @return array
 	 */
 	protected function getFileInfo( File $file ): array {
+		if ( $this->imageLookup !== null && isset( $this->imageLookup->info[$file] ) ) {
+			return $this->imageLookup->info[$file];
+		}
+
 		$timestamp = $file->getTimestamp();
 		$width = $file->getWidth();
 		$height = $file->getHeight();
 		$cacheHash = '?version=' . md5( $timestamp . $width . $height );
 		$image = WikiSEO::protocolizeUrl( $file->getFullUrl(), $this->outputPage->getRequest() );
 
-		return [
+		$info = [
 			'url' => $image . $cacheHash,
 			'width' => $width,
 			'height' => $height,
 		];
+		if ( $this->imageLookup !== null ) {
+			$this->imageLookup->info ??= new \WeakMap();
+			$this->imageLookup->info[$file] = $info;
+		}
+		return $info;
 	}
 
 	/**
@@ -246,10 +282,17 @@ abstract class AbstractBaseGenerator {
 		}
 
 		// Only consult PageImages when its answer can affect the fallback.
-		if ( ExtensionRegistry::getInstance()->isLoaded( 'PageImages' ) &&
-			PageImages::getPageImage( $this->outputPage->getTitle() ) !== false
-		) {
-			return;
+		if ( ExtensionRegistry::getInstance()->isLoaded( 'PageImages' ) ) {
+			$hasPageImage = $this->imageLookup->hasPageImage ?? null;
+			if ( $hasPageImage === null ) {
+				$hasPageImage = PageImages::getPageImage( $this->outputPage->getTitle() ) !== false;
+				if ( $this->imageLookup !== null ) {
+					$this->imageLookup->hasPageImage = $hasPageImage;
+				}
+			}
+			if ( $hasPageImage ) {
+				return;
+			}
 		}
 
 		$this->metadata['image'] = $defaultImage;
