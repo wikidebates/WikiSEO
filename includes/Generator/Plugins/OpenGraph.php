@@ -194,27 +194,31 @@ class OpenGraph extends AbstractBaseGenerator implements GeneratorInterface {
 			}
 		}
 
+		$socialImage = $this->getSocialMediaImageUrl();
+		if ( $socialImage !== null ) {
+			$this->metadata['image'] = $socialImage;
+			$this->metadata['image_width'] = $this->getConfigValue( 'WikiSeoSocialImageWidth' );
+			$this->metadata['image_height'] = $this->getConfigValue( 'WikiSeoSocialImageHeight' );
+			$this->metadata['image_type'] = 'image/jpeg';
+			$secure = MetaValues::secureUrl( $socialImage );
+			if ( $secure !== null ) {
+				$this->metadata['image_secure_url'] = $secure;
+			} else {
+				unset( $this->metadata['image_secure_url'] );
+			}
+		}
+
+		// Do not publish image dimensions, format or alt text for an image
+		// provided by a different extension when WikiSEO's fallback is skipped.
+		$skipFallback = $socialImage === null && $ogImageExists && $this->fallbackImageActive;
 		foreach ( $this->tags as $tag ) {
+			if ( $skipFallback && in_array( $tag, [
+				'image', 'image_width', 'image_height', 'image_alt', 'image_type', 'image_secure_url'
+			], true ) ) {
+				continue;
+			}
 			if ( array_key_exists( $tag, $this->metadata ) ) {
 				$convertedTag = $this->conversions[$tag];
-
-				if ( $convertedTag === 'og:image' ) {
-					if ( $this->getConfigValue( 'WikiSeoEnableSocialImages' ) ) {
-						$this->metadata['image_width'] = $this->getConfigValue( 'WikiSeoSocialImageWidth' );
-						$this->metadata['image_height'] = $this->getConfigValue( 'WikiSeoSocialImageHeight' );
-						$this->metadata['image'] = MediaWikiServices::getInstance()->getUrlUtils()->expand(
-							sprintf(
-								'/rest.php/wikiseo/v1/socialmediaimage/%s',
-								urlencode( ltrim( $this->outputPage->getTitle()->getLinkURL(), '/' ) )
-							)
-						);
-					// If an og:image is set, and we are using the fallback image, we skip our image
-					} elseif ( $ogImageExists && $this->fallbackImageActive ) {
-						unset( $this->tags['image_width'], $this->tags['image_height'] );
-						continue;
-					}
-				}
-
 				$this->outputPage->addHeadItem(
 					$convertedTag, Html::element(
 						'meta', [
