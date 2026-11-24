@@ -75,6 +75,7 @@ namespace MediaWiki\Extension\WikiSEO\Generator {
 			$this->metadata['image'] ??= 'https://fr.wikidebates.org/logo.png';
 		}
 		protected function preprocessFileMetadata(): void {}
+		protected function getSocialMediaImageUrl(): ?string { return null; }
 		protected function getFileObject( string $name ) { throw new \InvalidArgumentException(); }
 		protected function getFileInfo( $file ): array { return []; }
 		protected function getWikiLogo(): string { return 'https://fr.wikidebates.org/logo.png'; }
