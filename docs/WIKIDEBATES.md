@@ -157,3 +157,16 @@ Les tests `tests/standalone/parser_work.php` et `generators.php` comparent
 le comportement au commit precedent `22cc1b7f65d1bd058b7178393dbb17d3c015063f`.
 Les temps de microbenchmark PHP sont informatifs, sans seuil de CI. Aucun
 nouveau cache disque ou partage entre requetes n'est introduit.
+
+### Resolution mutualisee des images
+
+Open Graph, X et Schema.org reutilisent les resultats de recherche de fichier,
+les dimensions et l'horodatage deja lus, ainsi que la decision PageImages si
+une image par defaut est configuree. Le partage ne dure que le temps d'un
+appel `WikiSEO::addMetadataToPage()`, entre generateurs integres consecutifs.
+Un generateur facultatif/personnalise termine ce partage ; les donnees ne
+sont jamais conservees entre pages ou entre deux appels. Les erreurs
+inattendues des services ne sont pas mises en cache. Chaque generateur
+conserve sa propre selection d'image (y compris X explicite et URL sociale).
+Les tests comparent les appels aux services et le hash du HTML/JSON-LD avec
+le code precedent. Les compteurs ne sont pas des mesures de requetes SQL.
