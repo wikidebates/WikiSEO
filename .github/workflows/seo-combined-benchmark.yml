@@ -16,16 +16,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: .candidate
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           repository: wikimedia/mediawiki
           ref: 1.43.12
           path: .mw-lab
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           repository: wikidebates/wikidebates-core
           ref: 21d0c0d27ac72b9392d859d695c56230a868d772

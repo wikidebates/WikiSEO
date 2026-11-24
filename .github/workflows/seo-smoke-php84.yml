@@ -11,7 +11,7 @@ jobs:
   php84:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -107,20 +107,20 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           repository: wikimedia/mediawiki
           ref: 1.43.12
           path: .mw-lab
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           path: .mw-lab/extensions/WikiSEO
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           repository: wikidebates/wikidebates-core
           ref: 21d0c0d27ac72b9392d859d695c56230a868d772
           path: .wd-lab
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           repository: StarCitizenTools/mediawiki-extensions-ShortDescription
           ref: 683dde18ac00fcfebde0fbfb59fe1552c171386c
