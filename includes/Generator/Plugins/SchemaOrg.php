@@ -82,6 +82,19 @@ class SchemaOrg extends AbstractBaseGenerator implements GeneratorInterface {
 			$meta['author'] = [ '@type' => 'Person', 'name' => trim( $author ) ];
 		}
 
+		$website = $this->getWebsiteMetadata();
+		if ( $website !== null ) {
+			// Keep the existing page node and add a single, identified site
+			// node in the same JSON-LD document. The page title is not the
+			// name of the site.
+			unset( $meta['@context'] );
+			$meta['isPartOf'] = [ '@id' => $website['@id'] ];
+			$meta = [
+				'@context' => 'https://schema.org',
+				'@graph' => [ $website, $meta ],
+			];
+		}
+
 		$json = MetaValues::jsonLd( $meta );
 		if ( $json !== null ) {
 			$this->outputPage->addHeadItem( 'jsonld-metadata',
@@ -91,6 +104,38 @@ class SchemaOrg extends AbstractBaseGenerator implements GeneratorInterface {
 
 	public function getAllowedParameterNames(): array {
 		return $this->tags;
+	}
+
+	/** Optional site-name markup, only on the indexable main page. */
+	private function getWebsiteMetadata(): ?array {
+		$url = MetaValues::httpUrl( $this->getConfigValue( 'WikiSeoWebsiteUrl' ) );
+		if ( $url === null ) {
+			return null;
+		}
+		$parts = parse_url( $url );
+		if ( !is_array( $parts ) || !in_array( $parts['path'] ?? '', [ '', '/' ], true ) ||
+			isset( $parts['query'] ) || isset( $parts['fragment'] ) ||
+			isset( $parts['user'] ) || isset( $parts['pass'] ) ) {
+			return null;
+		}
+		if ( !$this->outputPage->isArticle() || $this->outputPage->getIndexPolicy() === 'noindex' ||
+			!$this->outputPage->getTitle()?->isMainPage() ) {
+			return null;
+		}
+		$name = $this->getConfigValue( 'WikiSeoWebsiteName' );
+		if ( !is_string( $name ) || trim( $name ) === '' ) {
+			$name = $this->getConfigValue( 'Sitename' );
+		}
+		if ( !is_string( $name ) || trim( $name ) === '' ) {
+			return null;
+		}
+		$url = rtrim( $url, '/' ) . '/';
+		return [
+			'@type' => 'WebSite',
+			'@id' => $url . '#website',
+			'name' => trim( $name ),
+			'url' => $url,
+		];
 	}
 
 	private function getImageMetadata(): ?array {
