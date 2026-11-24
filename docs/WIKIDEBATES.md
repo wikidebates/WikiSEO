@@ -269,3 +269,15 @@ explicite est invalide, omettre le publisher plutôt que deviner son identité.
 Sur l'accueil, le WebSite et la page référencent le même nœud Organization.
 Les pages natives en mode global-only ne sont pas affectées. Les données
 juridiques, coordonnées et logos non établis ne sont pas ajoutés.
+
+## Description courte des pages ordinaires
+
+Lorsqu'aucune description WikiSEO n'est disponible, une page en mode full
+peut réutiliser la propriété shortdesc déjà fournie à OutputPage par
+ShortDescription. La description explicite WikiSEO conserve la priorité ;
+les descriptions propres à X restent prioritaires pour X. Cette règle
+ne lance ni nouvelle requête PageProps ni TextExtracts. Elle ne crée aucune
+propriété persistante et n'agit pas si le champ shortdesc n'est pas disponible
+(par exemple si l'option ShortDescriptionEnableTagline est désactivée).
+Les pages natives global-only/off ne sont pas affectées. La description courte
+est du texte, pas une donnée PHP sérialisée, et reste échappée par les générateurs.

@@ -113,6 +113,16 @@ class WikiSEO {
 			$this->loadPagePropsFromDb( $outputPage->getTitle() ) ?? [];
 
 		$this->setMetadata( $result );
+
+		// ShortDescription already exposes its sanitized parser property on
+		// OutputPage. Use it only when WikiSEO has no description of its own.
+		// Do not ask PageProps or TextExtracts for a second description.
+		if ( !isset( $this->metadata['description'] ) && $outputPage->isArticle() ) {
+			$short = $outputPage->getProperty( 'shortdesc' );
+			if ( is_string( $short ) && trim( $short ) !== '' ) {
+				$this->metadata['description'] = trim( $short );
+			}
+		}
 	}
 
 	/**
