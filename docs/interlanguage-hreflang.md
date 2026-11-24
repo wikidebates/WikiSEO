@@ -53,9 +53,33 @@ $wgWikiSeoInterlanguageArticleUrls['fr'] = [
 ];
 ```
 
-Aliases are matched case-insensitively, with spaces and underscores treated
-equivalently. Unconfigured prefixes and colons within the remaining title
-are preserved. Verify the map against the target site's namespace settings,
+Title whitespace (including MediaWiki's Unicode space characters), repeated
+underscores, leading/trailing whitespace and optional initial colon are
+normalized before URL generation. Only configured namespace aliases change
+the interpretation of the first colon. Other colons retain their meaning.
+Aliases are matched case-insensitively after whitespace normalization.
+Conflicting alias definitions or nonempty section fragments are rejected.
+
+First-letter capitalization is **opt-in per localized namespace**, because
+remote case rules may differ from the source wiki's rules. For instance,
+after verifying the receiving wiki's namespace configuration:
+
+```php
+$wgWikiSeoInterlanguageArticleUrls['fr']['namespaceAliases']['Template'] = 'Modèle';
+$wgWikiSeoInterlanguageArticleUrls['fr']['namespaceAliases']['Modèle'] = 'Modèle';
+$wgWikiSeoInterlanguageArticleUrls['fr']['namespaceCase'] = [
+	'' => 'first-letter', // main namespace
+	'Modèle' => 'first-letter',
+	'Module' => 'case-sensitive', // example only: verify actual configuration
+];
+```
+
+Keys use the localized DB-key spelling (underscores instead of spaces).
+Unspecified namespaces preserve case. An optional route-level
+`ucfirstOverrides` map reflects the receiver's
+`$wgOverrideUcfirstCharacters` configuration. No remote page or namespace
+lookups are made in the final-head hook; use receiver-verified configuration,
+not guessed capitalization. The route is not a redirect resolver. Verify the map against the target site's namespace settings,
 not the source language's settings. The automatic mode still does not
 resolve remote redirects, unknown aliases, or assert that a target is
 indexable. Verify these and reciprocal links separately; checking them on
