@@ -1,0 +1,35 @@
+name: WikiSEO - PHP 8.4 smoke and compatibility checks
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php84:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Syntax-check extension and standalone checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          find includes -name '*.php' -print0 | xargs -0 -n 1 php -l
+          find tests/standalone -name '*.php' -print0 | xargs -0 -n 1 php -l
+          php -r 'json_decode(file_get_contents("extension.json"), true, 512, JSON_THROW_ON_ERROR);'
+      - name: Validate metadata and generator behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/meta_values.php
+          php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/generators.php
