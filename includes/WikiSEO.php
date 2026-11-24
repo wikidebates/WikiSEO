@@ -165,6 +165,11 @@ class WikiSEO {
 	 * @param OutputPage $out
 	 */
 	public function addMetadataToPage( OutputPage $out ): void {
+		// This also protects callers invoking WikiSEO directly, without
+		// passing through its BeforePageDisplay hook.
+		if ( PagePolicy::forOutput( $out ) !== PagePolicy::FULL ) {
+			return;
+		}
 		if ( $out->isArticle() && !isset( $out->getRequest()->getQueryValues()['diff'] ) ) {
 			$this->modifyPageTitle( $out );
 		}
