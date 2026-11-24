@@ -155,6 +155,8 @@ abstract class AbstractBaseGenerator {
 				$this->metadata['image'] = $info['url'];
 				$this->metadata['image_width'] = $info['width'];
 				$this->metadata['image_height'] = $info['height'];
+				// Reuse the same File object; Open Graph needs the MIME type.
+				$this->metadata['image_type'] = $file->getMimeType();
 			} catch ( InvalidArgumentException $e ) {
 				// File does not exist.
 				// Maybe the user has set an URL, should we do something?
