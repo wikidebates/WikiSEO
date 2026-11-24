@@ -12,7 +12,9 @@ final class MetaValues {
 	private const SCHEMA_TYPES = [
 		'WebPage', 'AboutPage', 'ContactPage', 'CollectionPage', 'ProfilePage',
 		'ItemPage', 'Article', 'NewsArticle', 'BlogPosting', 'ScholarlyArticle',
-		'QAPage', 'FAQPage', 'DiscussionForumPosting', 'Question', 'Answer', 'Dataset',
+		// QAPage, FAQPage and other rich-result types require dedicated
+		// structures (mainEntity, Question/Answer, etc.) and belong in
+		// the Wikidebates extension rather than this generic generator.
 	];
 
 	public static function openGraphType( array $metadata ): string {
