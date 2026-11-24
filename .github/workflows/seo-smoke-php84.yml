@@ -120,6 +120,11 @@ jobs:
           repository: wikidebates/wikidebates-core
           ref: 21d0c0d27ac72b9392d859d695c56230a868d772
           path: .wd-lab
+      - uses: actions/checkout@v4
+        with:
+          repository: StarCitizenTools/mediawiki-extensions-ShortDescription
+          ref: 683dde18ac00fcfebde0fbfb59fe1552c171386c
+          path: .mw-lab/extensions/ShortDescription
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -144,4 +149,12 @@ jobs:
           php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/parser.php
           php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/website.php
           php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/robots.php
-
+      - name: Reuse ShortDescription on French and English ordinary pages
+        env:
+          MW_INSTALL_PATH: ${{ github.workspace }}/.mw-lab
+          WD_TEST_EXTENSIONS: WikiSEO,ShortDescription
+          WD_SEO_LAB_BOOTSTRAP: ${{ github.workspace }}/.wd-lab/tests/mediawikiEnvironment.php
+        run: |
+          for lang in fr en; do
+            WD_TEST_LANGUAGE="$lang" php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/short_description.php
+          done
