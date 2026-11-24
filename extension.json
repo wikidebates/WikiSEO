@@ -56,6 +56,10 @@
 			"description": "Array with metadata generators. Valid values are OpenGraph, Twitter, SchemaOrg, Citation. Defaults to all three generators if empty.",
 			"value": []
 		},
+		"WikiSeoPublisher": {
+			"description": "Optional explicit publishing organization: name, url, optional alternateName and logo. Use the same canonical organization URL across language editions.",
+			"value": null
+		},
 		"WikiSeoWebsiteUrl": {
 			"description": "Canonical domain or subdomain root URL for optional WebSite markup on the wiki main page.",
 			"value": null
