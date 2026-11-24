@@ -84,6 +84,10 @@
 			"description": "Disable setting the sites logo as the default SEO image if no image was provided.",
 			"value": false
 		},
+		"WikiSeoLargeImagePreview": {
+			"description": "Allow large image previews on ordinary article views with only the standard core robots directive. Leaves native, noindex and otherwise restricted output unchanged.",
+			"value": false
+		},
 		"WikiSeoNoindexPageTitles": {
 			"description": "Array of page titles that should have a robot policy of 'noindex'.",
 			"value": []

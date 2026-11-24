@@ -279,13 +279,21 @@ class MetaTag extends AbstractBaseGenerator implements GeneratorInterface {
 	 * Sets the robot policy to noindex
 	 */
 	private function addNoIndex(): void {
-		if ( !empty( $this->metadata['robots'] ) ) {
-			// We assume the following order: index policy, follow policy
-			$parts = array_map( 'trim', explode( ',', $this->metadata['robots'] ) );
-
-			$this->outputPage->setIndexPolicy( $parts[0] ?? '' );
-			$this->outputPage->setFollowPolicy( $parts[1] ?? '' );
-		} elseif ( $this->shouldAddNoIndex() ) {
+		$policy = $this->metadata['robots'] ?? null;
+		if ( is_string( $policy ) && $policy !== '' ) {
+			$parts = array_map( 'trim', explode( ',', strtolower( $policy ) ) );
+			// Editorial metadata may strengthen, but never relax, policies
+			// already imposed by MediaWiki or the URL/title exclusions.
+			$none = in_array( 'none', $parts, true );
+			if ( $none || in_array( 'nofollow', $parts, true ) ) {
+				$this->outputPage->setFollowPolicy( 'nofollow' );
+			}
+			if ( $none || in_array( 'noindex', $parts, true ) ) {
+				$this->outputPage->setIndexPolicy( 'noindex' );
+				return;
+			}
+		}
+		if ( $this->shouldAddNoIndex() ) {
 			$this->outputPage->setIndexPolicy( 'noindex' );
 		}
 	}
