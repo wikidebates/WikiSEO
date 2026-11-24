@@ -246,8 +246,63 @@ namespace {
 		foreach ( $c as $key => $count ) {
 			$total[$key] += $count;
 		}
-		$allHtml[$label] = $result['html'];
+		$html = $result['html'];
+		if ( in_array( $label, [ 'missing', 'Open Graph alone missing' ], true ) ) {
+			$expected = $baseline ? 'Missing.png' : 'https://example.test/logo.png';
+			same( '<meta property="og:image" content="' . $expected . '">',
+				$html[2]['og:image'], $label . ' intended image correction' );
+			if ( $label === 'missing' ) {
+				same( [ [ 'twitter:image', $expected ] ], array_values( array_filter(
+					$html[1], static fn ( array $tag ): bool => $tag[0] === 'twitter:image'
+				) ), 'Missing file X image' );
+			}
+			same( $baseline ? null : '<meta property="og:image:secure_url" content="https://example.test/logo.png">',
+				$html[2]['og:image:secure_url'] ?? null, 'Expected secure URL' );
+			// Compare all other fields exactly with the historical implementation.
+			unset( $html[2]['og:image'], $html[2]['og:image:secure_url'] );
+			$html[1] = array_values( array_filter( $html[1],
+				static fn ( array $tag ): bool => $tag[0] !== 'twitter:image' ) );
+		}
+		$allHtml[$label] = $html;
 	}
+	if ( !$baseline ) {
+		foreach ( [ 'Missing.png', 'javascript:alert(1)' ] as $invalid ) {
+			foreach ( [ false, true ] as $disableLogo ) {
+				$result = render( [
+					'image' => $invalid, 'image_width' => '1200', 'image_height' => '600',
+					'image_alt' => 'Wrong image', 'image_type' => 'image/jpeg',
+					'image_secure_url' => 'https://example.test/wrong.png',
+				], [ 'WikiSeoDisableLogoFallbackImage' => $disableLogo ] );
+				[ , $meta, $head ] = $result['html'];
+				$tags = array_column( $meta, 1, 0 );
+				foreach ( [ 'og:image:width', 'og:image:height', 'og:image:alt', 'og:image:type' ] as $key ) {
+					same( false, isset( $head[$key] ), 'Do not attach invalid-image attributes to the replacement' );
+				}
+				same( false, isset( $tags['twitter:image:alt'] ), 'Do not reuse invalid general image alt' );
+				if ( $disableLogo ) {
+					same( false, isset( $head['og:image'] ) || isset( $head['og:image:secure_url'] ),
+						'No OG image when logo fallback disabled' );
+					same( false, isset( $tags['twitter:image'] ), 'No X image when logo fallback disabled' );
+				} else {
+					same( '<meta property="og:image" content="https://example.test/logo.png">',
+						$head['og:image'], 'Logo fallback' );
+					same( '<meta property="og:image:secure_url" content="https://example.test/logo.png">',
+						$head['og:image:secure_url'], 'Secure URL matches replacement image' );
+					same( 'https://example.test/logo.png', $tags['twitter:image'], 'Same X logo fallback' );
+				}
+			}
+		}
+		$result = render( [ 'image' => '//example.test/remote.png' ] );
+		[ , $meta, $head ] = $result['html'];
+		same( '<meta property="og:image" content="https://example.test/remote.png">',
+			$head['og:image'], 'Protocol-relative remote image expanded' );
+		same( 'https://example.test/remote.png', array_column( $meta, 1, 0 )['twitter:image'],
+			'Expanded remote X image' );
+		if ( !str_contains( $head['jsonld-metadata'], 'https://example.test/remote.png' ) ) {
+			throw new RuntimeException( 'Expanded remote Schema.org image' );
+		}
+	}
+
 	// A custom generator must not inherit the shared lookup or cause stale
 	// results for later built-ins.
 	$services = MediaWikiServices::getInstance();

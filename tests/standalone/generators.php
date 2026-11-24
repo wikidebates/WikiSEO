@@ -178,7 +178,9 @@ namespace {
 		], $out );
 		$twitter->addMetadata();
 		testAssert( ( $out->tags['twitter:image'] ?? null ) === $expected, 'Exact dedicated image output' );
-		testAssert( $out->tags['twitter:image:alt'] === 'General alt', 'Alt fallback is unchanged' );
+		testAssert( ( $out->tags['twitter:image:alt'] ?? null ) ===
+			( $baseline || $expected !== null ? 'General alt' : null ),
+			'Alt fallback is retained only for a published image' );
 		testAssert( AbstractBaseGenerator::$fallbackCalls === ( $baseline ? 1 : 0 ), 'Unneeded fallback call' );
 		testAssert( AbstractBaseGenerator::$preprocessCalls === ( $baseline ? 1 : 0 ), 'Unneeded preprocess call' );
 		testAssert( AbstractBaseGenerator::$socialCalls === ( $baseline ? 1 : 0 ), 'Unneeded social image URL call' );

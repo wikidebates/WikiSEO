@@ -281,3 +281,17 @@ propriété persistante et n'agit pas si le champ shortdesc n'est pas disponible
 (par exemple si l'option ShortDescriptionEnableTagline est désactivée).
 Les pages natives global-only/off ne sont pas affectées. La description courte
 est du texte, pas une donnée PHP sérialisée, et reste échappée par les générateurs.
+
+## Références d'images invalides
+
+Une image locale introuvable ou une valeur qui n'est pas une URL HTTP(S)
+valide ne doit plus apparaître telle quelle dans Open Graph ou X. Le
+repli existant vers le logo est appliqué si autorisé ; les dimensions,
+le type, le texte alternatif et l'URL sécurisée de l'image invalide sont
+retirés. Sans logo autorisé, l'image est omise. Une image X explicite mais
+invalide reste omise, sans publier de texte alternatif seul. Les URL
+externes relatives au protocole sont développées pour les images générales.
+Les URL externes ne sont pas interrogées à distance ; leur accessibilité
+aux robots doit être vérifiée hors du rendu. Les comparaisons historiques
+restent strictes pour les cas non concernés et vérifient séparément les
+champs volontairement corrigés.

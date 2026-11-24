@@ -184,35 +184,49 @@ abstract class AbstractBaseGenerator {
 	 * If the metadata key 'image' is set, try to get file info of the local file
 	 */
 	protected function preprocessFileMetadata(): void {
+		$this->fallbackImageActive = false;
 		if ( isset( $this->metadata['image'] ) ) {
-			try {
-				$file = $this->getFileObject( $this->metadata['image'] );
-				$info = $this->getFileInfo( $file );
+			$image = $this->metadata['image'];
+			if ( is_string( $image ) ) {
+				try {
+					$file = $this->getFileObject( $image );
+					$info = $this->getFileInfo( $file );
 
-				$this->metadata['image'] = $info['url'];
-				$this->metadata['image_width'] = $info['width'];
-				$this->metadata['image_height'] = $info['height'];
-				// Reuse the same File object; Open Graph needs the MIME type.
-				$this->metadata['image_type'] = $file->getMimeType();
-			} catch ( InvalidArgumentException $e ) {
-				// File does not exist.
-				// Maybe the user has set an URL, should we do something?
-			}
-		} else {
-			if ( $this->getConfigValue( 'WikiSeoDisableLogoFallbackImage' ) === true ) {
-				return;
-			}
-
-			try {
-				$logo = $this->getWikiLogo();
-
-				if ( $logo !== false ) {
-					$this->metadata['image'] = $logo;
-					$this->fallbackImageActive = true;
+					$this->metadata['image'] = $info['url'];
+					$this->metadata['image_width'] = $info['width'];
+					$this->metadata['image_height'] = $info['height'];
+					$this->metadata['image_type'] = $file->getMimeType();
+					return;
+				} catch ( InvalidArgumentException $e ) {
+					// The input may be an external image URL.
+					$url = str_starts_with( $image, '//' )
+						? WikiSEO::protocolizeUrl( $image, $this->outputPage->getRequest() )
+						: $image;
+					if ( MetaValues::httpUrl( $url ) !== null ) {
+						$this->metadata['image'] = $url;
+						return;
+					}
 				}
-			} catch ( Exception $e ) {
-				// We do nothing
 			}
+			// Attributes of an unresolved image do not describe its replacement.
+			foreach ( [ 'image', 'image_width', 'image_height', 'image_alt',
+				'image_type', 'image_secure_url' ] as $key ) {
+				unset( $this->metadata[$key] );
+			}
+		}
+
+		if ( $this->getConfigValue( 'WikiSeoDisableLogoFallbackImage' ) === true ) {
+			return;
+		}
+
+		try {
+			$logo = $this->getWikiLogo();
+			if ( $logo !== false ) {
+				$this->metadata['image'] = $logo;
+				$this->fallbackImageActive = true;
+			}
+		} catch ( Exception $e ) {
+			// No logo available.
 		}
 	}
 

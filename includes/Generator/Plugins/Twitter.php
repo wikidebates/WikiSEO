@@ -60,8 +60,10 @@ class Twitter extends AbstractBaseGenerator implements GeneratorInterface {
 			}
 		}
 		$this->addIfPresent( 'twitter:image', $image );
-		$this->addIfPresent( 'twitter:image:alt',
-			$this->metadata['twitter_image_alt'] ?? $this->metadata['image_alt'] ?? null );
+		if ( is_string( $image ) && trim( $image ) !== '' ) {
+			$this->addIfPresent( 'twitter:image:alt',
+				$this->metadata['twitter_image_alt'] ?? $this->metadata['image_alt'] ?? null );
+		}
 
 		// A global site handle takes precedence for compatibility with WikiSEO 2.7.
 		$this->addIfPresent( 'twitter:site',
