@@ -28,6 +28,7 @@ use ExtensionRegistry;
 use File;
 use InvalidArgumentException;
 use MediaWiki\Extension\WikiSEO\WikiSEO;
+use MediaWiki\Extension\WikiSEO\MetaValues;
 use MediaWiki\MediaWikiServices;
 use OutputPage;
 use PageImages\PageImages;
@@ -177,6 +178,26 @@ abstract class AbstractBaseGenerator {
 				// We do nothing
 			}
 		}
+	}
+
+	/**
+	 * Return the configured social image endpoint, when available. OG and X
+	 * must use the same URL if dedicated social images are enabled.
+	 */
+	protected function getSocialMediaImageUrl(): ?string {
+		if ( !$this->getConfigValue( 'WikiSeoEnableSocialImages' ) ) {
+			return null;
+		}
+		$title = $this->outputPage->getTitle();
+		if ( $title === null ) {
+			return null;
+		}
+		$path = sprintf(
+			'/rest.php/wikiseo/v1/socialmediaimage/%s',
+			urlencode( ltrim( $title->getLinkURL(), '/' ) )
+		);
+		$expanded = MediaWikiServices::getInstance()->getUrlUtils()->expand( $path );
+		return MetaValues::httpUrl( $expanded );
 	}
 
 	/**
