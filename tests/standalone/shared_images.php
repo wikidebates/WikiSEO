@@ -180,6 +180,9 @@ namespace MediaWiki\Extension\WikiSEO\Generator\Plugins {
 }
 
 namespace {
+	use MediaWiki\Extension\WikiSEO\WikiSEO;
+	use MediaWiki\MediaWikiServices;
+	use PageImages\PageImages;
 
 	function same( $expected, $actual, string $message ): void {
 		if ( $expected !== $actual ) {
@@ -215,7 +218,7 @@ namespace {
 
 	// A custom generator can change underlying file state. Sharing must end
 	// at this boundary, even when the same file name is used on both sides.
-	// Its real implementation is declared below after registering autoload.
+	// Its implementation is declared above after registering autoload.
 	$cases = [
 		[ 'local', [ 'image' => 'Shared.png' ], [], false, [ 3, 3, 3, 0 ], [ 1, 1, 1, 0 ] ],
 		[ 'external', [ 'image' => 'https://example.test/remote.png' ], [], false, [ 4, 0, 0, 0 ], [ 1, 0, 0, 0 ] ],
