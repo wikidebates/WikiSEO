@@ -131,10 +131,10 @@ abstract class AbstractBaseGenerator {
 	 * @return array
 	 */
 	protected function getFileInfo( File $file ): array {
-		$cacheHash =
-			'?version=' . md5( $file->getTimestamp() . $file->getWidth() . $file->getHeight() );
+		$timestamp = $file->getTimestamp();
 		$width = $file->getWidth();
 		$height = $file->getHeight();
+		$cacheHash = '?version=' . md5( $timestamp . $width . $height );
 		$image = WikiSEO::protocolizeUrl( $file->getFullUrl(), $this->outputPage->getRequest() );
 
 		return [
@@ -235,19 +235,24 @@ abstract class AbstractBaseGenerator {
 	 * @return void
 	 */
 	protected function setFallbackImageIfEnabled(): void {
-		$continue = true;
-
-		if ( ExtensionRegistry::getInstance()->isLoaded( 'PageImages' ) ) {
-			$continue = PageImages::getPageImage( $this->outputPage->getTitle() ) === false;
+		// An explicit image always wins. PageImages cannot change that decision.
+		if ( isset( $this->metadata['image'] ) ) {
+			return;
 		}
 
-		if ( !isset( $this->metadata['image'] ) && $continue ) {
-			$defaultImage = $this->getConfigValue( 'WikiSeoDefaultImage' );
-
-			if ( $defaultImage !== null ) {
-				$this->metadata['image'] = $defaultImage;
-			}
+		$defaultImage = $this->getConfigValue( 'WikiSeoDefaultImage' );
+		if ( $defaultImage === null ) {
+			return;
 		}
+
+		// Only consult PageImages when its answer can affect the fallback.
+		if ( ExtensionRegistry::getInstance()->isLoaded( 'PageImages' ) &&
+			PageImages::getPageImage( $this->outputPage->getTitle() ) !== false
+		) {
+			return;
+		}
+
+		$this->metadata['image'] = $defaultImage;
 	}
 
 	/**

@@ -30,3 +30,47 @@ jobs:
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/meta_values.php
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/generators.php
           php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/page_policy.php
+          php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/image_work.php
+      - name: Compare image lookup counts with the previous implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=3f52f9d7d196bcaed541201f4412f4bf1e6b71e1
+          git fetch --no-tags --depth=1 origin "$baseline"
+          previous="$(mktemp)"
+          trap 'rm -f "$previous"' EXIT
+          git show "$baseline:includes/Generator/AbstractBaseGenerator.php" > "$previous"
+          php -d display_errors=1 -d error_reporting=E_ALL tests/standalone/image_work.php "$previous" --baseline
+
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: wikimedia/mediawiki
+          ref: 1.43.11
+          path: .mw-lab
+      - uses: actions/checkout@v4
+        with:
+          path: .mw-lab/extensions/WikiSEO
+      - uses: actions/checkout@v4
+        with:
+          repository: wikidebates/wikidebates-core
+          ref: 07cc741fd9bbe768ef182a1c123f8c634d4a82f8
+          path: .wd-lab
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl, xml, pdo_sqlite, sqlite3
+          coverage: none
+          tools: composer
+      - name: Install isolated MediaWiki dependencies
+        working-directory: .mw-lab
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Verify native handoff and ordinary SEO output
+        env:
+          MW_INSTALL_PATH: ${{ github.workspace }}/.mw-lab
+          WD_TEST_EXTENSIONS: WikiSEO
+        run: php -d display_errors=1 -d error_reporting=E_ALL .wd-lab/tests/seoCoexistence.php
+
