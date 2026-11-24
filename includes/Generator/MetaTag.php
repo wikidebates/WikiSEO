@@ -213,6 +213,12 @@ class MetaTag extends AbstractBaseGenerator implements GeneratorInterface {
 	 * Will add a link element for the current page if $wgWikiSeoDefaultLanguage is set
 	 */
 	private function addHrefLangs(): void {
+		// The opt-in interwiki mode owns hreflang at final head assembly.
+		// Do not mix it with historical subpages or manual language tags.
+		$routes = $this->getConfigValue( 'WikiSeoInterlanguageArticleUrls' );
+		if ( is_array( $routes ) && $routes !== [] ) {
+			return;
+		}
 		$language = $this->getConfigValue( 'WikiSeoDefaultLanguage' );
 
 		if ( !empty( $language ) && in_array( $language, Validator::$isoLanguageCodes, true ) &&
