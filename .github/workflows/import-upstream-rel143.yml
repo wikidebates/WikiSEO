@@ -1,0 +1,33 @@
+name: Import original WikiSEO REL1_43 history
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-original-history:
+    if: github.repository == 'wikidebates/WikiSEO'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch pinned upstream history and publish import branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git clone --branch REL1_43 --single-branch https://github.com/wikimedia/mediawiki-extensions-WikiSEO.git source
+          expected=0496485749063be68fbe3a3aa1bd444979ec262a
+          actual="$(git -C source rev-parse HEAD)"
+          test "$actual" = "$expected" || {
+            echo "Upstream REL1_43 moved: expected $expected, found $actual" >&2
+            exit 1
+          }
+          header="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -C source -c http.extraheader="AUTHORIZATION: basic $header" push \
+            https://github.com/wikidebates/WikiSEO.git HEAD:refs/heads/import/REL1_43
+          echo "Imported original history at $actual"
