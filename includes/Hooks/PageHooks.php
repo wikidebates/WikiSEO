@@ -149,6 +149,20 @@ class PageHooks implements BeforePageDisplayHook, RevisionDataUpdatesHook {
 			return;
 		}
 
+		// MediaWiki 1.43 has no getter for its robots options. Only replace
+		// the exact default tag after all BeforePageDisplay handlers. Never
+		// replace a restricted policy or add a second robots meta element.
+		if ( $this->mainConfig->get( 'WikiSeoLargeImagePreview' ) === true &&
+			$output->isArticle() &&
+			( $tags['meta-robots'] ?? null ) === Html::element( 'meta', [
+				'name' => 'robots', 'content' => 'max-image-preview:standard',
+			] )
+		) {
+			$tags['meta-robots'] = Html::element( 'meta', [
+				'name' => 'robots', 'content' => 'max-image-preview:large',
+			] );
+		}
+
 		// Construction still registers configured generator-specific parameters
 		// (e.g. Citation). The canonical read itself needs no other metadata.
 		$seo = new WikiSEO();

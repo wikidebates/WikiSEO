@@ -143,4 +143,5 @@ jobs:
           php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/canonical.php
           php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/parser.php
           php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/website.php
+          php -d display_errors=1 -d error_reporting=E_ALL .mw-lab/extensions/WikiSEO/tests/integration/robots.php
 
