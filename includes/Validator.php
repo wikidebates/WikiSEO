@@ -27,6 +27,12 @@ namespace MediaWiki\Extension\WikiSEO;
  * @package MediaWiki\Extension\WikiSEO
  */
 class Validator {
+	/** @var string|null Cache fingerprint; generator hooks may add valid names. */
+	private static ?string $cachedParamsFingerprint = null;
+
+	/** @var string[]|null Valid names computed for the current generator set. */
+	private static ?array $cachedParams = null;
+
 	/**
 	 * Valid parameter names across all generators
 	 * @see WikiSEO::mergeValidTags()
@@ -316,17 +322,24 @@ class Validator {
 	 * @return string[]
 	 */
 	public static function getValidParams(): array {
+		// Generator registration can extend the public valid-name list.
+		$fingerprint = implode( "\0", self::$validParameterNames );
+		if ( self::$cachedParams !== null && self::$cachedParamsFingerprint === $fingerprint ) {
+			return self::$cachedParams;
+		}
+
 		$params = array_values( array_filter(
 			self::$validParameterNames,
 			static function ( string $name ): bool {
 				return $name !== 'hreflang_%';
 			}
 		) );
-
 		foreach ( self::$isoLanguageCodes as $langCode ) {
 			$params[] = 'hreflang_' . $langCode;
 		}
 
-		return array_values( array_unique( $params ) );
+		self::$cachedParamsFingerprint = $fingerprint;
+		self::$cachedParams = array_values( array_unique( $params ) );
+		return self::$cachedParams;
 	}
 }
