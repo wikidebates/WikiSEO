@@ -243,3 +243,29 @@ les installations sans cette configuration conservent leur sortie. Aucun
 appel distant, aucune lecture d'historique, aucun nouveau cache. Ne pas
 activer avant d'avoir vérifié l'URL canonique et l'accès public à la racine.
 La description éditoriale de l'accueil reste gérée par le modèle SEO projet.
+
+## Organisation éditrice distincte du site (optionnel)
+
+Les pages publiques de présentation française et anglaise identifient
+Le Laboratoire du débat méthodique comme l'association qui anime Wikidébats.
+Pour les pages prises en charge par WikiSEO, une configuration explicite permet
+de distinguer cette organisation du site. Utiliser la même identité et la même
+URL de référence sur les deux wikis :
+
+```php
+$wgWikiSeoPublisher = [
+	'name' => 'Le Laboratoire du débat méthodique',
+	'url' => 'https://fr.wikidebates.org/wiki/Wikid%C3%A9bats:Laboratoire_du_d%C3%A9bat_m%C3%A9thodique',
+	'alternateName' => 'The Laboratory of Methodical Debate',
+];
+```
+
+L'identifiant stable est l'URL suivie de #organization. Le logo de
+l'association peut être fourni explicitement avec logo (URL HTTP(S)),
+mais le logo du wiki n'est pas supposé être celui de l'association. Le repli
+vers le logo pour les images de page reste indépendant et inchangé. Sans
+configuration, conserver le publisher historique ; si une configuration
+explicite est invalide, omettre le publisher plutôt que deviner son identité.
+Sur l'accueil, le WebSite et la page référencent le même nœud Organization.
+Les pages natives en mode global-only ne sont pas affectées. Les données
+juridiques, coordonnées et logos non établis ne sont pas ajoutés.

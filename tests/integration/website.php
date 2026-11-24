@@ -55,4 +55,40 @@ foreach ( [ 'https://example.test/wiki/Home', 'https://example.test/?q=1',
 	$GLOBALS['wgWikiSeoWebsiteUrl'] = $invalid;
 	same( 'WebPage', websiteGraph( $main )['@type'], 'Invalid root URL rejected' );
 }
-echo "OK: optional WebSite graph and unchanged ordinary page metadata\n";
+$organizationUrl = 'https://fr.wikidebates.org/wiki/Wikid%C3%A9bats:Laboratoire_du_d%C3%A9bat_m%C3%A9thodique';
+$organization = [
+	'@type' => 'Organization',
+	'@id' => $organizationUrl . '#organization',
+	'name' => 'Le Laboratoire du débat méthodique',
+	'url' => $organizationUrl,
+	'alternateName' => 'The Laboratory of Methodical Debate',
+];
+$GLOBALS['wgWikiSeoPublisher'] = [
+	'name' => $organization['name'],
+	'url' => $organizationUrl,
+	'alternateName' => $organization['alternateName'],
+];
+foreach ( [ 'https://fr.wikidebates.org/', 'https://en.wikidebates.org/' ] as $url ) {
+	$GLOBALS['wgWikiSeoWebsiteUrl'] = $url;
+	$graph = websiteGraph( $main )['@graph'];
+	same( 3, count( $graph ), 'Exactly one explicit organization node' );
+	same( $organization, $graph[2], 'Same organization across language sites, no invented logo' );
+	same( [ '@id' => $organization['@id'] ], $graph[0]['publisher'], 'Site publisher reference' );
+	same( [ '@id' => $organization['@id'] ], $graph[1]['publisher'], 'Page publisher reference' );
+	same( $organization, websiteGraph( $ordinary )['publisher'], 'Ordinary page publisher retains identity' );
+}
+$GLOBALS['wgWikiSeoPublisher']['logo'] = 'https://example.test/organization-logo.png';
+same( [ '@type' => 'ImageObject', 'url' => 'https://example.test/organization-logo.png' ],
+	websiteGraph( $ordinary )['publisher']['logo'], 'Explicit publisher logo' );
+$GLOBALS['wgWikiSeoPublisher']['logo'] = 'javascript:alert(1)';
+check( !isset( websiteGraph( $ordinary )['publisher']['logo'] ), 'Invalid organization logo omitted' );
+foreach ( [ [], 'invalid', [ 'name' => '', 'url' => $organizationUrl ],
+	[ 'name' => 'Invalid URL', 'url' => 'https://example.test/#other' ],
+	[ 'name' => 'Credentials', 'url' => 'https://user@example.test/' ] ] as $invalid ) {
+	$GLOBALS['wgWikiSeoPublisher'] = $invalid;
+	check( !isset( websiteGraph( $ordinary )['publisher'] ), 'Invalid explicit publisher omitted' );
+}
+$GLOBALS['wgWikiSeoPublisher'] = null;
+check( isset( websiteGraph( $ordinary )['publisher']['name'] ), 'Legacy default publisher restored' );
+
+echo "OK: optional WebSite graph, explicit organization and unchanged default metadata\n";
