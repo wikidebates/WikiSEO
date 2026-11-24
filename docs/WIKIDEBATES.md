@@ -222,3 +222,24 @@ a mesure une reduction du CPU de 36,5 a 36,8 % pour les cas natifs, de
 (de la version officielle au candidat). Les trois cas natifs ont conserve
 leur empreinte SEO finale. Ces chiffres concernent les operations mesurees,
 non le rendu HTML complet ou les pages servies depuis un cache fichier.
+
+## Nom du site sur la page d'accueil (optionnel)
+
+Google distingue le nom du site du titre de la page. Pour un wiki dont
+l'accueil est accessible à la racine du domaine ou sous-domaine, activer
+le générateur SchemaOrg et renseigner les valeurs suivantes par wiki :
+
+```php
+$wgWikiSeoWebsiteUrl = 'https://fr.wikidebates.org/';
+$wgWikiSeoWebsiteName = 'Wikidébats';
+```
+
+Sur le wiki anglais, utiliser sa propre racine et le nom Wikidebates. Si le
+nom n'est pas renseigné, Sitename est utilisé. L'URL est explicitement
+configurée : le code ne suppose pas que tout wiki est installé à la racine.
+Le générateur ajoute un nœud WebSite dans le même JSON-LD que la page
+principale indexable ; les pages ordinaires, les modes global-only/off et
+les installations sans cette configuration conservent leur sortie. Aucun
+appel distant, aucune lecture d'historique, aucun nouveau cache. Ne pas
+activer avant d'avoir vérifié l'URL canonique et l'accès public à la racine.
+La description éditoriale de l'accueil reste gérée par le modèle SEO projet.

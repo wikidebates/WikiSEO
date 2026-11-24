@@ -56,6 +56,14 @@
 			"description": "Array with metadata generators. Valid values are OpenGraph, Twitter, SchemaOrg, Citation. Defaults to all three generators if empty.",
 			"value": []
 		},
+		"WikiSeoWebsiteUrl": {
+			"description": "Canonical domain or subdomain root URL for optional WebSite markup on the wiki main page.",
+			"value": null
+		},
+		"WikiSeoWebsiteName": {
+			"description": "Preferred site name for WebSite markup. Falls back to Sitename.",
+			"value": null
+		},
 		"WikiSeoDefaultImage": {
 			"description": "Default image. Local image, if not set $wgLogo will be used.",
 			"value": null
