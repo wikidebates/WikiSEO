@@ -184,6 +184,38 @@ $other = $language === 'en' ? 'fr' : 'en';
 $result = InterlanguageHreflang::alternates( [ $other . ':Topic: A colon' ], $aliasRoutes, $language, $canonical );
 same( str_replace( '$1', wfUrlencode( 'Topic:_A_colon' ), $routes[$other] ), $result[$other], 'Unknown prefix remains part of an ordinary title' );
 
+// Interlanguage now accepts the full MediaWiki whitespace syntax. The
+// corresponding head URLs must be identical, including receiving-only
+// namespace aliases and explicitly verified first-letter case rules.
+$normalizedRoutes = $aliasRoutes;
+$normalizedRoutes[$other]['namespaceAliases'] += [
+	'Template' => $other === 'fr' ? 'Modèle' : 'Template',
+	'Custom Alias' => $other === 'fr' ? 'Modèle' : 'Template',
+	'Module' => 'Module',
+];
+$templatePrefix = $other === 'fr' ? 'Modèle' : 'Template';
+$normalizedRoutes[$other]['namespaceCase'] = [ '' => 'first-letter', $templatePrefix => 'first-letter', 'Module' => 'case-sensitive' ];
+$variants = [
+	$other . ':Template:Argument with spaces',
+	$other . ': Template: Argument__with_spaces ',
+	$other . ":__custom__alias__:__argument\u{00A0}with spaces",
+	$other . ': :Template:argument with spaces#',
+];
+$normalizedExpected = [ $language => $canonical, $other => str_replace( '$1', wfUrlencode( $templatePrefix . ':Argument_with_spaces' ), $routes[$other] ) ];
+ksort( $normalizedExpected );
+same( $normalizedExpected, InterlanguageHreflang::alternates( $variants, $normalizedRoutes, $language, $canonical ), 'All legitimate remote title spellings produce one alternate' );
+$out = fixture( $titles[$language], $variants );
+$tags = initialTags( $canonical );
+InterlanguageHreflang::apply( $tags, $out, $normalizedRoutes, $language, true );
+same( $normalizedExpected, cluster( $tags ), 'Normalized variants in the final head' );
+$result = InterlanguageHreflang::alternates( [ $other . ': topic: A__colon' ], $normalizedRoutes, $language, $canonical );
+same( str_replace( '$1', wfUrlencode( 'Topic:_A_colon' ), $routes[$other] ), $result[$other], 'Normalize whitespace, not unknown namespace-like prefixes' );
+$result = InterlanguageHreflang::alternates( [ $other . ': Module:lowercase' ], $normalizedRoutes, $language, $canonical );
+same( str_replace( '$1', wfUrlencode( 'Module:lowercase' ), $routes[$other] ), $result[$other], 'Configured case-sensitive namespace preserved' );
+$result = InterlanguageHreflang::alternates( [ $other . ':Template:alpha', $other . ':Template:beta' ], $normalizedRoutes, $language, $canonical );
+same( [], $result, 'Distinct normalized targets for one language remain ambiguous' );
+same( [], InterlanguageHreflang::alternates( [ $other . ':Template:../Page', $other . ':Template:Page#Section' ], $normalizedRoutes, $language, $canonical ), 'Reject partial and unsafe normalized titles' );
+
 $bad = [ 'zz' => 'javascript:$1', 'ja' => 'https://user@other.example.test/$1', 'nl' => 'https://$1.example.test/wiki/' ];
 same( [], InterlanguageHreflang::alternates( [ 'zz:Page', 'ja:Page', 'nl:Page', 'de:Page#section', 'es:../Page' ], $routes + $bad, $language, $canonical ), 'Reject invalid routes and partial page links' );
 
@@ -207,15 +239,15 @@ foreach ( [ $primary, $replica ] as $db ) {
 }
 $primary->query( 'SELECT 1', __METHOD__ );
 check( $logger->queries > 0, 'SQL instrumentation positive control' );
-$out = fixture( $titles[$language], $links );
+$out = fixture( $titles[$language], $variants );
 $logger->queries = 0;
 $iterations = 1000;
 $started = hrtime( true );
 for ( $i = 0; $i < $iterations; $i++ ) {
 	$tags = initialTags( $canonical );
-	InterlanguageHreflang::apply( $tags, $out, $routes, $language, true );
+	InterlanguageHreflang::apply( $tags, $out, $normalizedRoutes, $language, true );
 }
 $elapsed = ( hrtime( true ) - $started ) / 1e6;
 same( 0, $logger->queries, 'No extra real SQL queries in final hreflang generation' );
-same( $expected, cluster( $tags ), 'Benchmark retains all six links' );
+same( $normalizedExpected, cluster( $tags ), 'Benchmark retains normalized cluster' );
 printf( "PASS hreflang %s: %d iterations, %0.3f ms total, %d additional SQL queries\n", $language, $iterations, $elapsed, $logger->queries );

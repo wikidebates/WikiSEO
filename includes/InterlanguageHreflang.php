@@ -6,6 +6,7 @@ namespace MediaWiki\Extension\WikiSEO;
 
 use Html;
 use MediaWiki\Output\OutputPage;
+use MediaWiki\Parser\Sanitizer;
 use MediaWiki\Title\TitleValue;
 
 /**
@@ -161,25 +162,13 @@ final class InterlanguageHreflang {
 	 * @param string|array|mixed $route
 	 */
 	private static function articleUrl( $route, string $title ): ?string {
-		if ( $title === '' || preg_match( '~[#\x00-\x1f\x7f<>\\\\]~', $title ) ||
-			preg_match( '~(?:^|/)\.{1,2}(?:/|$)~', $title )
-		) {
+		$dbkey = self::normalizeRemoteTitle( $title, is_array( $route ) ? $route : [] );
+		if ( $dbkey === null ) {
 			return null;
 		}
-		// Only explicitly configured aliases may change a remote namespace.
-		// Canonical namespace names (e.g. Project) need not be the localized
-		// URL prefix, and a colon may also be part of an ordinary title.
-		if ( is_array( $route ) && is_array( $route['namespaceAliases'] ?? null ) ) {
-			$title = self::localizedNamespaceTitle( $title, $route['namespaceAliases'] );
-		}
-		$target = TitleValue::tryNew( NS_MAIN, $title );
-		if ( $target === null ) {
-			return null;
-		}
-		$dbkey = $target->getDBkey();
 		if ( is_array( $route ) ) {
 			$mainTitle = $route['mainPageTitle'] ?? null;
-			if ( is_string( $mainTitle ) && str_replace( ' ', '_', $mainTitle ) === $dbkey ) {
+			if ( is_string( $mainTitle ) && self::normalizeRemoteTitle( $mainTitle, $route ) === $dbkey ) {
 				return self::absoluteUrl( $route['mainPageUrl'] ?? null );
 			}
 			$route = $route['article'] ?? null;
@@ -195,24 +184,95 @@ final class InterlanguageHreflang {
 		return self::absoluteUrl( str_replace( '$1', wfUrlencode( $dbkey ), $route ) );
 	}
 
-	private static function localizedNamespaceTitle( string $title, array $aliases ): string {
-		if ( !str_contains( $title, ':' ) ) {
-			return $title;
+	/** MediaWiki 1.43 title whitespace rules; no namespace or database lookup. */
+	private static function titleWhitespace( string $text ): ?string {
+		if ( !mb_check_encoding( $text, 'UTF-8' ) ) {
+			return null;
 		}
-		[ $prefix, $name ] = explode( ':', $title, 2 );
-		$prefix = mb_strtolower( str_replace( ' ', '_', trim( $prefix ) ) );
-		foreach ( $aliases as $alias => $canonical ) {
-			if ( !is_string( $alias ) || !is_string( $canonical ) ||
-				$canonical === '' || preg_match( '~[:#<>/\\\\\x00-\x1f\x7f]~', $canonical )
-			) {
-				continue;
+		$text = preg_replace( '/[\x{200E}\x{200F}\x{202A}-\x{202E}]+/u', '', $text );
+		$text = preg_replace( '/[ _\xA0\x{1680}\x{180E}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+/u', '_', $text );
+		return $text === null ? null : trim( $text, '_' );
+	}
+
+	/**
+	 * Normalize only syntax and explicitly configured remote namespace rules.
+	 * Never use the local wiki's namespace parser to interpret a remote title.
+	 * Case-sensitive namespaces stay case-sensitive. Remote page existence and
+	 * redirect destinations cannot be established by this pure URL builder.
+	 */
+	private static function normalizeRemoteTitle( string $raw, array $route ): ?string {
+		if ( !mb_check_encoding( $raw, 'UTF-8' ) ) {
+			return null;
+		}
+		$title = self::titleWhitespace( Sanitizer::decodeCharReferencesAndNormalize( $raw ) );
+		if ( $title === null || $title === '' ) {
+			return null;
+		}
+		// A single leading colon is a link-syntax marker, not a title character.
+		if ( str_starts_with( $title, ':' ) ) {
+			$title = ltrim( substr( $title, 1 ), '_' );
+		}
+		[ $title, $fragment ] = array_pad( explode( '#', $title, 2 ), 2, '' );
+		$title = rtrim( $title, '_' );
+		if ( $fragment !== '' || $title === '' || str_starts_with( $title, ':' ) ||
+			str_contains( $title, "\u{FFFD}" ) ||
+			preg_match( '~[\x00-\x1f\x7f<>\\\\\[\]{}|]~', $title ) ||
+			preg_match( '~(?:^|/)\.{1,2}(?:/|$)~', $title ) ||
+			str_contains( $title, '~~~' )
+		) {
+			return null;
+		}
+
+		$namespace = '';
+		$name = $title;
+		$aliases = $route['namespaceAliases'] ?? [];
+		if ( is_array( $aliases ) && str_contains( $title, ':' ) ) {
+			[ $prefix, $rest ] = explode( ':', $title, 2 );
+			$prefix = mb_strtolower( rtrim( $prefix, '_' ), 'UTF-8' );
+			$matches = [];
+			foreach ( $aliases as $alias => $canonical ) {
+				if ( !is_string( $alias ) || !is_string( $canonical ) ) {
+					continue;
+				}
+				$key = self::titleWhitespace( $alias );
+				$localized = self::titleWhitespace( $canonical );
+				if ( $key === null || $localized === null || $localized === '' ||
+					preg_match( '~[:#<>/\\\\\x00-\x1f\x7f]~', $localized )
+				) {
+					continue;
+				}
+				if ( mb_strtolower( $key, 'UTF-8' ) === $prefix ) {
+					$matches[$localized] = true;
+				}
 			}
-			if ( mb_strtolower( str_replace( ' ', '_', trim( $alias ) ) ) === $prefix ) {
-				// MediaWiki ignores whitespace adjacent to a namespace colon.
-				return $canonical . ':' . ltrim( $name, " _" );
+			if ( count( $matches ) > 1 ) {
+				return null;
+			}
+			if ( $matches ) {
+				$namespace = array_key_first( $matches );
+				$name = ltrim( $rest, '_' );
 			}
 		}
-		return $title;
+		if ( $name === '' || str_starts_with( $name, ':' ) || strlen( $name ) > 255 ||
+			preg_match( '~(?:^|/)\.{1,2}(?:/|$)~', $name )
+		) {
+			return null;
+		}
+
+		$case = $route['namespaceCase'] ?? [];
+		// Without receiver-specific evidence, preserve case as before.
+		if ( is_array( $case ) && ( $case[$namespace] ?? null ) === 'first-letter' ) {
+			$first = mb_substr( $name, 0, 1, 'UTF-8' );
+			$overrides = $route['ucfirstOverrides'] ?? [];
+			$upper = is_array( $overrides ) ? ( $overrides[$first] ?? null ) : null;
+			$name = ( is_string( $upper ) ? $upper : mb_convert_case( $first, MB_CASE_TITLE, 'UTF-8' ) ) .
+				mb_substr( $name, 1, null, 'UTF-8' );
+		}
+		if ( $name === '' ) {
+			return null;
+		}
+		$target = TitleValue::tryNew( NS_MAIN, $namespace === '' ? $name : $namespace . ':' . $name );
+		return $target?->getDBkey();
 	}
 
 	private static function absoluteUrl( $url ): ?string {
