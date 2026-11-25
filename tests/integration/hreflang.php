@@ -216,6 +216,27 @@ $result = InterlanguageHreflang::alternates( [ $other . ':Template:alpha', $othe
 same( [], $result, 'Distinct normalized targets for one language remain ambiguous' );
 same( [], InterlanguageHreflang::alternates( [ $other . ':Template:../Page', $other . ':Template:Page#Section' ], $normalizedRoutes, $language, $canonical ), 'Reject partial and unsafe normalized titles' );
 
+// Matching aliases must still be fully validated, and conflicting normalized
+// keys must not be resolved by configuration order.
+
+$collisionRoutes = $normalizedRoutes;
+$collisionRoutes[$other]['namespaceAliases'] = [
+	'Template' => $templatePrefix,
+	' TEMPLATE ' => ' ' . $templatePrefix . ' ',
+	'template_' => 'Invalid:namespace',
+	'Unrelated' => 'Category',
+	'Invalid key' => false,
+];
+$expectedAlias = [ $language => $canonical, $other => str_replace( '$1', wfUrlencode( $templatePrefix . ':Argument_with_spaces' ), $routes[$other] ) ];
+ksort( $expectedAlias );
+$aliasTarget = [ $other . ':Template:Argument with spaces' ];
+same( $expectedAlias, InterlanguageHreflang::alternates( $aliasTarget, $collisionRoutes, $language, $canonical ), 'Equivalent alias spellings agree; invalid destinations are ignored' );
+$collisionRoutes[$other]['namespaceAliases']['_template'] = 'Category';
+same( [], InterlanguageHreflang::alternates( $aliasTarget, $collisionRoutes, $language, $canonical ), 'Conflicting valid destinations suppress the alternate' );
+$collisionRoutes[$other]['namespaceAliases'] = array_reverse( $collisionRoutes[$other]['namespaceAliases'], true );
+same( [], InterlanguageHreflang::alternates( $aliasTarget, $collisionRoutes, $language, $canonical ), 'Conflicting destinations remain ambiguous in reverse order' );
+same( $expectedAlias, InterlanguageHreflang::alternates( $aliasTarget, $normalizedRoutes, $language, $canonical ), 'Independent calls preserve their own configuration' );
+
 $bad = [ 'zz' => 'javascript:$1', 'ja' => 'https://user@other.example.test/$1', 'nl' => 'https://$1.example.test/wiki/' ];
 same( [], InterlanguageHreflang::alternates( [ 'zz:Page', 'ja:Page', 'nl:Page', 'de:Page#section', 'es:../Page' ], $routes + $bad, $language, $canonical ), 'Reject invalid routes and partial page links' );
 
