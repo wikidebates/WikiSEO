@@ -235,15 +235,18 @@ final class InterlanguageHreflang {
 					continue;
 				}
 				$key = self::titleWhitespace( $alias );
+				if ( $key === null || mb_strtolower( $key, 'UTF-8' ) !== $prefix ) {
+					continue;
+				}
+				// Only matching aliases need destination normalization.
+				// Still examine every matching spelling to detect conflicts.
 				$localized = self::titleWhitespace( $canonical );
-				if ( $key === null || $localized === null || $localized === '' ||
+				if ( $localized === null || $localized === '' ||
 					preg_match( '~[:#<>/\\\\\x00-\x1f\x7f]~', $localized )
 				) {
 					continue;
 				}
-				if ( mb_strtolower( $key, 'UTF-8' ) === $prefix ) {
-					$matches[$localized] = true;
-				}
+				$matches[$localized] = true;
 			}
 			if ( count( $matches ) > 1 ) {
 				return null;
